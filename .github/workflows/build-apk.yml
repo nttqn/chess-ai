@@ -1,0 +1,59 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Flutter version
+        run: flutter --version
+
+      # android/ is intentionally not committed to the repo (see .gitignore)
+      # so nobody needs Flutter/Android Studio installed locally just to
+      # keep this file in sync. We regenerate it fresh on every build, then
+      # patch in the AdMob App ID and INTERNET permission it needs.
+      - name: Generate Android platform project
+        run: flutter create --platforms=android --org com.trungchess --project-name chess_app .
+
+      - name: Patch AndroidManifest.xml for AdMob
+        env:
+          ADMOB_APP_ID: ${{ secrets.ADMOB_APP_ID }}
+        run: |
+          set -e
+          APP_ID="${ADMOB_APP_ID:-ca-app-pub-3940256099942544~3347511713}"
+          MANIFEST=android/app/src/main/AndroidManifest.xml
+          if [ -z "${ADMOB_APP_ID}" ]; then
+            echo "::warning::ADMOB_APP_ID secret not set — using Google's TEST AdMob App ID. Ads will show as test ads only. Set the ADMOB_APP_ID secret before publishing."
+          fi
+          sed -i "s#<application#<uses-permission android:name=\"android.permission.INTERNET\"/>\n  <application#" "$MANIFEST"
+          sed -i "s#</application>#    <meta-data android:name=\"com.google.android.gms.ads.APPLICATION_ID\" android:value=\"${APP_ID}\"/>\n  </application>#" "$MANIFEST"
+          cat "$MANIFEST"
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze (non-blocking)
+        run: flutter analyze || true
+
+      - name: Build release APK
+        run: flutter build apk --release
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: chess-app-release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 30
