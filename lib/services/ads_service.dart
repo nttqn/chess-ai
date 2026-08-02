@@ -1,36 +1,31 @@
-import 'dart:io';
-
+import 'package:flutter/foundation.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 /// Wraps AdMob banner + interstitial ads behind Google's official TEST ad
 /// unit IDs. Swap these for your real AdMob IDs before publishing — see
 /// README.md "Trước khi publish" section.
+///
+/// `google_mobile_ads` only supports Android/iOS, so every entry point here
+/// is a no-op on web/desktop — that keeps `flutter run -d chrome` usable
+/// for previewing gameplay without a phone.
 class AdsService {
   AdsService._();
   static final AdsService instance = AdsService._();
 
-  static const String _testBannerAndroid = 'ca-app-pub-3940256099942544/6300978111';
-  static const String _testInterstitialAndroid = 'ca-app-pub-3940256099942544/1033173712';
-
-  String get bannerAdUnitId {
-    if (Platform.isAndroid) return _testBannerAndroid;
-    return _testBannerAndroid; // iOS not targeted yet; same test id placeholder.
-  }
-
-  String get interstitialAdUnitId {
-    if (Platform.isAndroid) return _testInterstitialAndroid;
-    return _testInterstitialAndroid;
-  }
+  static const String bannerAdUnitId = 'ca-app-pub-3940256099942544/6300978111';
+  static const String interstitialAdUnitId = 'ca-app-pub-3940256099942544/1033173712';
 
   InterstitialAd? _interstitialAd;
   int _gamesSinceInterstitial = 0;
 
   Future<void> initialize() async {
+    if (kIsWeb) return;
     await MobileAds.instance.initialize();
     _loadInterstitial();
   }
 
-  BannerAd createBannerAd({required void Function() onLoaded}) {
+  BannerAd? createBannerAd({required void Function() onLoaded}) {
+    if (kIsWeb) return null;
     final banner = BannerAd(
       adUnitId: bannerAdUnitId,
       size: AdSize.banner,
@@ -45,6 +40,7 @@ class AdsService {
   }
 
   void _loadInterstitial() {
+    if (kIsWeb) return;
     InterstitialAd.load(
       adUnitId: interstitialAdUnitId,
       request: const AdRequest(),
@@ -58,6 +54,7 @@ class AdsService {
   /// Shows an interstitial roughly every other finished game so ads never
   /// interrupt active play — call this once when a game ends.
   void maybeShowInterstitialAfterGame() {
+    if (kIsWeb) return;
     _gamesSinceInterstitial++;
     if (_gamesSinceInterstitial < 2 || _interstitialAd == null) {
       if (_interstitialAd == null) _loadInterstitial();
