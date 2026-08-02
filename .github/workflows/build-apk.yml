@@ -42,6 +42,29 @@ jobs:
           sed -i "s#</application>#    <meta-data android:name=\"com.google.android.gms.ads.APPLICATION_ID\" android:value=\"${APP_ID}\"/>\n  </application>#" "$MANIFEST"
           cat "$MANIFEST"
 
+      # google_mobile_ads requires minSdk 24+ (and a recent compileSdk).
+      # flutter create defaults these to `flutter.minSdkVersion` /
+      # `flutter.compileSdkVersion`, which can lag behind what current
+      # plugins need, so force explicit values here. Handles both the
+      # Groovy (build.gradle) and Kotlin DSL (build.gradle.kts) templates
+      # since Flutter has changed the default over time.
+      - name: Raise minSdk/compileSdk for plugin compatibility
+        run: |
+          set -e
+          for f in android/app/build.gradle android/app/build.gradle.kts; do
+            if [ -f "$f" ]; then
+              echo "Patching $f"
+              if [[ "$f" == *.kts ]]; then
+                sed -i -E 's/minSdk( )?=.*/minSdk = 24/' "$f"
+                sed -i -E 's/compileSdk( )?=.*/compileSdk = 36/' "$f"
+              else
+                sed -i -E 's/minSdkVersion .*/minSdkVersion 24/' "$f"
+                sed -i -E 's/compileSdkVersion .*/compileSdkVersion 36/' "$f"
+              fi
+              grep -nE 'minSdk|compileSdk' "$f"
+            fi
+          done
+
       - name: Install dependencies
         run: flutter pub get
 

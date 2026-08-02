@@ -47,6 +47,12 @@ Khi nào bạn muốn tùy biến sâu hơn (icon riêng, cấu hình ký releas
 nên cài Flutter + Android Studio và bỏ `/android/` ra khỏi `.gitignore` để
 commit hẳn thư mục đó, thay vì sinh lại mỗi lần build.
 
+Lưu ý: plugin `google_mobile_ads` bản mới nhất yêu cầu `minSdk 24` trở lên
+(Android 7.0+), nên workflow cũng tự nâng `minSdkVersion`/`compileSdk` của
+project lên 24/36 sau bước `flutter create` — máy chạy Android cũ hơn 7.0
+sẽ không cài được app, đây là đánh đổi hợp lý vì thị phần Android <7.0 hiện
+rất nhỏ.
+
 ## Cách lấy file APK
 
 1. Tạo một repo GitHub (private hoặc public đều được) và push toàn bộ thư
