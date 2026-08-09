@@ -49,6 +49,17 @@ regenerates `android/` from scratch on every run via `flutter create
    install). This exists because `google_mobile_ads` requires minSdk 24+;
    without the override, the value falls through to Flutter's own
    `flutter.minSdkVersion` default, which can be lower.
+4. Forces `isMinifyEnabled`/`shrinkResources` (or the Groovy equivalents)
+   off for the release build type. Recent AGP's R8 strips
+   `androidx.work.impl.WorkDatabase_Impl` (only referenced via reflection),
+   which WorkManager needs — WorkManager itself gets pulled in transitively
+   by `google_mobile_ads`. Without this the installed APK crashes on
+   launch with "Unable to get provider
+   androidx.startup.InitializationProvider" / "Failed to create an
+   instance of androidx.work.impl.WorkDatabase". If shrinking is ever
+   re-enabled for a smaller release APK, this needs a `proguard-rules.pro`
+   keep rule for `androidx.work.impl.WorkDatabase_Impl` instead of just
+   turning shrinking off.
 
 If you ever need to hand-edit Android native files (custom launcher icon,
 permanent signing config, etc.), the intended path is: install Flutter

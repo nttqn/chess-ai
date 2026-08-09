@@ -65,6 +65,25 @@ jobs:
             fi
           done
 
+      # Recent AGP versions run R8 much more aggressively and strip
+      # androidx.work's WorkDatabase_Impl (only referenced via reflection),
+      # which crashes every screen with "Unable to get provider
+      # androidx.startup.InitializationProvider" / "Failed to create an
+      # instance of androidx.work.impl.WorkDatabase" the moment the app
+      # opens on a real device — WorkManager gets pulled in transitively by
+      # google_mobile_ads. Shrinking isn't worth the APK-size win yet, so
+      # just turn it off for the release build.
+      - name: Disable release code shrinking (avoids AGP R8/WorkManager crash)
+        run: |
+          set -e
+          if [ -f android/app/build.gradle.kts ]; then
+            perl -0777 -pi -e 's/release \{/release {\n            isMinifyEnabled = false\n            isShrinkResources = false/' android/app/build.gradle.kts
+            grep -n -A4 'release {' android/app/build.gradle.kts
+          elif [ -f android/app/build.gradle ]; then
+            perl -0777 -pi -e 's/release \{/release {\n            minifyEnabled false\n            shrinkResources false/' android/app/build.gradle
+            grep -n -A4 'release {' android/app/build.gradle
+          fi
+
       - name: Install dependencies
         run: flutter pub get
 
