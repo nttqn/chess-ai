@@ -25,10 +25,17 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Text('♛', style: TextStyle(fontSize: 72)),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(24),
+                  child: Image.asset(
+                    'assets/icon/icon.png',
+                    width: 120,
+                    height: 120,
+                  ),
+                ),
                 const SizedBox(height: 8),
                 Text(
-                  'Cờ Vua AI',
+                  'Chess with AI',
                   style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),

@@ -28,7 +28,7 @@ jobs:
       - name: Generate Android platform project
         run: flutter create --platforms=android --org com.trungchess --project-name chess_app .
 
-      - name: Patch AndroidManifest.xml for AdMob
+      - name: Patch AndroidManifest.xml (AdMob + app label)
         env:
           ADMOB_APP_ID: ${{ secrets.ADMOB_APP_ID }}
         run: |
@@ -40,6 +40,7 @@ jobs:
           fi
           sed -i "s#<application#<uses-permission android:name=\"android.permission.INTERNET\"/>\n  <application#" "$MANIFEST"
           sed -i "s#</application>#    <meta-data android:name=\"com.google.android.gms.ads.APPLICATION_ID\" android:value=\"${APP_ID}\"/>\n  </application>#" "$MANIFEST"
+          sed -i -E 's/android:label="[^"]*"/android:label="Chess with AI"/g' "$MANIFEST"
           cat "$MANIFEST"
 
       # google_mobile_ads requires minSdk 24+ (and a recent compileSdk).
@@ -86,6 +87,13 @@ jobs:
 
       - name: Install dependencies
         run: flutter pub get
+
+      # Reads assets/icon/icon.png and writes it into every
+      # android/app/src/main/res/mipmap-*/ launcher icon slot. Must run
+      # after "Generate Android platform project" (needs android/ to
+      # exist) and after "Install dependencies" (needs the package itself).
+      - name: Generate launcher icon
+        run: dart run flutter_launcher_icons
 
       - name: Analyze (non-blocking)
         run: flutter analyze || true

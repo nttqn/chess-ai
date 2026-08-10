@@ -1,5 +1,5 @@
 name: chess_app
-description: "Cờ Vua AI - Chơi cờ vua với máy trên Android, nhiều cấp độ khó dễ."
+description: "Chess with AI - Chơi cờ vua với máy trên Android, nhiều cấp độ khó dễ."
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -18,6 +18,15 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
+  flutter_launcher_icons: ^0.14.4
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/icon/icon.png
+
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/icon/icon.png"
+  min_sdk_android: 24

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A Flutter Android chess-vs-AI game (`Cờ Vua AI`), Vietnamese-language UI, with
+A Flutter Android chess-vs-AI game (`Chess with AI`), Vietnamese-language UI, with
 AdMob banner + interstitial ads wired in, intended for Google Play. There is
 no native `android/` (or `ios/`) directory in this repo — see "Android
 project is generated, not committed" below before assuming any Gradle/Manifest
@@ -60,6 +60,12 @@ regenerates `android/` from scratch on every run via `flutter create
    re-enabled for a smaller release APK, this needs a `proguard-rules.pro`
    keep rule for `androidx.work.impl.WorkDatabase_Impl` instead of just
    turning shrinking off.
+5. Runs `dart run flutter_launcher_icons` (after `flutter pub get`, so the
+   package is resolvable) to write `assets/icon/icon.png` into every
+   `android/app/src/main/res/mipmap-*/ic_launcher` slot, and sets
+   `android:label="Chess with AI"` in the manifest. To change the app icon,
+   replace `assets/icon/icon.png` (also bundled as a Flutter asset and
+   shown on the home screen) — nothing else needs editing.
 
 If you ever need to hand-edit Android native files (custom launcher icon,
 permanent signing config, etc.), the intended path is: install Flutter

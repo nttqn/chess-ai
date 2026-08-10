@@ -117,7 +117,7 @@ class _GameScreenState extends State<GameScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Cờ Vua AI · ${widget.difficulty.label}'),
+        title: Text('Chess with AI · ${widget.difficulty.label}'),
         actions: [
           IconButton(
             tooltip: 'Đi lại nước trước',

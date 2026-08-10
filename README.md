@@ -1,4 +1,4 @@
-# Cờ Vua AI
+# Chess with AI
 
 Game cờ vua chơi với máy trên Android, viết bằng Flutter. Có 4 cấp độ khó
 (Dễ / Trung bình / Khó / Rất khó) dựa trên thuật toán minimax + alpha-beta
@@ -37,9 +37,11 @@ Máy hiện tại chưa cài Flutter SDK / Android Studio, nên mình không t�
   1. Cài Flutter trong máy ảo cloud.
   2. Chạy `flutter create --platforms=android .` để tự sinh khung project
      Android (gradle, AndroidManifest.xml, icon mặc định...).
-  3. Vá thêm vào `AndroidManifest.xml`: quyền INTERNET + AdMob App ID
-     (dùng ID TEST của Google nếu bạn chưa cấu hình secret thật).
-  4. `flutter pub get` rồi `flutter build apk --release`.
+  3. Vá thêm vào `AndroidManifest.xml`: quyền INTERNET, AdMob App ID (dùng
+     ID TEST của Google nếu bạn chưa cấu hình secret thật), và tên app
+     hiển thị "Chess with AI".
+  4. `flutter pub get`, sinh icon app từ `assets/icon/icon.png` bằng
+     `flutter_launcher_icons`, rồi `flutter build apk --release`.
   5. Đăng file APK lên phần **Artifacts** của lần chạy đó để bạn tải về.
 
 Ưu điểm: bạn không cần cài đặt gì nặng trên máy để có file APK dùng thử.
@@ -118,9 +120,12 @@ flutter run -d chrome
      Console: `flutter build appbundle --release`.
 
 4. **Icon ứng dụng**
-   - Icon hiện tại là icon mặc định của Flutter. Thay bằng cách thêm gói
-     `flutter_launcher_icons` vào `pubspec.yaml`, đặt 1 ảnh icon vuông vào
-     `assets/icon.png`, rồi chạy `dart run flutter_launcher_icons`.
+   - Đã cấu hình sẵn: `assets/icon/icon.png` là icon nguồn, workflow tự
+     chạy `dart run flutter_launcher_icons` (cấu hình trong `pubspec.yaml`)
+     sau bước `flutter pub get` để sinh icon cho mọi kích thước mipmap.
+     Muốn đổi icon, chỉ cần thay file `assets/icon/icon.png` (ảnh vuông,
+     nên dùng PNG không có góc bo sẵn để Android tự bo theo từng launcher)
+     rồi push lại.
 
 5. **Google Play Console**
    - Đăng ký tài khoản nhà phát triển (phí một lần 25 USD):
