@@ -66,6 +66,18 @@ regenerates `android/` from scratch on every run via `flutter create
    `android:label="Chess with AI"` in the manifest. To change the app icon,
    replace `assets/icon/icon.png` (also bundled as a Flutter asset and
    shown on the home screen) — nothing else needs editing.
+6. If `KEYSTORE_BASE64` (+ `KEYSTORE_PASSWORD`/`KEY_ALIAS`/`KEY_PASSWORD`)
+   secrets are set, decodes the keystore, writes `android/key.properties`,
+   then runs `tool/patch_signing.js` (a committed Node script, not
+   inline sed — this edit needs a proper multi-line block insert plus an
+   import line for the Kotlin DSL case, which is fragile as a heredoc
+   nested inside YAML's indentation-sensitive block scalars) to add a
+   `release` `signingConfig` in `android/app/build.gradle(.kts)` and point
+   the release build type at it instead of the debug key. Without these
+   secrets the build silently stays debug-signed (fine to sideload,
+   rejected by Play Console). The actual keystore file lives outside the
+   repo (never commit one — `.gitignore` also blocks
+   `*.jks`/`*.keystore`/`key.properties` as a backstop).
 
 If you ever need to hand-edit Android native files (custom launcher icon,
 permanent signing config, etc.), the intended path is: install Flutter

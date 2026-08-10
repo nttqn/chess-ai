@@ -102,22 +102,38 @@ flutter run -d chrome
      `.github/workflows/build-apk.yml`.
 
 3. **Ký release (bắt buộc để publish)**
-   - Tạo keystore (chạy trên máy có cài JDK, chạy 1 lần, lưu file này thật
-     kỹ, mất là không update được app nữa):
+   - Workflow đã có sẵn bước "Configure release signing": nếu 4 secret bên
+     dưới tồn tại trên GitHub repo, nó tự giải mã keystore, tạo
+     `android/key.properties`, và trỏ `signingConfig` của bản release sang
+     keystore đó trước khi build — cả file APK lẫn AAB đều được ký thật.
+     Thiếu secret thì build vẫn chạy nhưng quay lại ký bằng debug key như
+     cũ (chỉ để cài thử, Play Store sẽ từ chối).
+   - Vào GitHub repo → **Settings → Secrets and variables → Actions → New
+     repository secret**, thêm 4 secret:
+     | Secret | Giá trị |
+     |---|---|
+     | `KEYSTORE_BASE64` | Nội dung file keystore, mã hoá base64 |
+     | `KEYSTORE_PASSWORD` | Mật khẩu keystore |
+     | `KEY_ALIAS` | Alias của key trong keystore |
+     | `KEY_PASSWORD` | Mật khẩu key |
+   - **Giữ file keystore thật kỹ** — mất file này (hoặc quên mật khẩu) thì
+     không bao giờ update được app đã publish nữa, phải tạo app mới hoàn
+     toàn trên Play Console. Đừng commit file keystore hay
+     `key.properties` vào git (đã có sẵn trong `.gitignore`).
+   - Tự tạo keystore mới (nếu cần, chạy trên máy có cài JDK — `keytool` đi
+     kèm sẵn):
      ```
-     keytool -genkey -v -keystore chess-release.keystore -alias chess -keyalg RSA -keysize 2048 -validity 10000
+     keytool -genkeypair -v -keystore chess-with-ai-release.jks -alias chesswithai -keyalg RSA -keysize 2048 -validity 10000
      ```
-   - Cách đơn giản nhất để CI dùng được keystore này: mã hoá base64 file
-     keystore, lưu làm GitHub secret (`KEYSTORE_BASE64`, cùng
-     `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`), rồi thêm bước vào
-     `build-apk.yml` để giải mã file và trỏ `signingConfig` trong
-     `android/app/build.gradle` sang keystore đó trước khi build — hoặc,
-     đơn giản hơn, cài Flutter/Android Studio cục bộ, `flutter create`
-     một lần, bỏ `/android/` khỏi `.gitignore`, cấu hình signing trực tiếp
-     trong `android/app/build.gradle` như hướng dẫn chính thức của Flutter:
-     https://docs.flutter.dev/deployment/android#signing-the-app
-   - Khi đã ký đúng, nên build file **AAB** thay vì APK để nộp lên Play
-     Console: `flutter build appbundle --release`.
+     rồi mã hoá base64 để dán vào secret `KEYSTORE_BASE64` (PowerShell):
+     ```powershell
+     [Convert]::ToBase64String([IO.File]::ReadAllBytes("chess-with-ai-release.jks")) | Set-Clipboard
+     ```
+     (giờ đã có sẵn trong clipboard, chỉ cần dán trực tiếp vào ô secret).
+   - CI build ra cả **APK** (`chess-app-release-apk`, cài thử trực tiếp
+     lên điện thoại) và **AAB** (`chess-app-release-aab`, dùng file này để
+     nộp lên Play Console — Play Store bắt buộc định dạng AAB cho app
+     mới).
 
 4. **Icon ứng dụng**
    - Đã cấu hình sẵn: `assets/icon/icon.png` là icon nguồn, workflow tự

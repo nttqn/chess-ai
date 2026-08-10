@@ -13,6 +13,11 @@ build/
 /windows/
 /web/
 
+# Release signing — never commit these. See README.md "Ký release".
+*.jks
+*.keystore
+key.properties
+
 # IDE
 .idea/
 .vscode/
