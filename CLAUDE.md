@@ -49,17 +49,20 @@ regenerates `android/` from scratch on every run via `flutter create
    install). This exists because `google_mobile_ads` requires minSdk 24+;
    without the override, the value falls through to Flutter's own
    `flutter.minSdkVersion` default, which can be lower.
-4. Forces `isMinifyEnabled`/`shrinkResources` (or the Groovy equivalents)
-   off for the release build type. Recent AGP's R8 strips
-   `androidx.work.impl.WorkDatabase_Impl` (only referenced via reflection),
-   which WorkManager needs — WorkManager itself gets pulled in transitively
-   by `google_mobile_ads`. Without this the installed APK crashes on
-   launch with "Unable to get provider
-   androidx.startup.InitializationProvider" / "Failed to create an
-   instance of androidx.work.impl.WorkDatabase". If shrinking is ever
-   re-enabled for a smaller release APK, this needs a `proguard-rules.pro`
-   keep rule for `androidx.work.impl.WorkDatabase_Impl` instead of just
-   turning shrinking off.
+4. Turns on `isMinifyEnabled`/`isShrinkResources` (or the Groovy
+   equivalents) for the release build type, wires up `proguardFiles`, and
+   appends `tool/proguard-rules-extra.pro` onto the freshly-generated
+   `android/app/proguard-rules.pro`. That extra file's keep rules exist
+   because recent AGP's R8 strips `androidx.work.impl.WorkDatabase_Impl`
+   (only referenced via reflection) — WorkManager needs that class, and
+   gets pulled in transitively by `google_mobile_ads`. Without the keep
+   rules, a *shrunk* release build crashes on launch with "Unable to get
+   provider androidx.startup.InitializationProvider" / "Failed to create
+   an instance of androidx.work.impl.WorkDatabase" (shrinking was
+   disabled entirely as a first-pass fix for this; re-enabled with the
+   proper keep rules once Play Console started flagging "Low app
+   optimization" for the unshrunk build). If some *other* reflection-used
+   class starts getting stripped, this is the file to extend.
 5. Runs `dart run flutter_launcher_icons` (after `flutter pub get`, so the
    package is resolvable) to write `assets/icon/icon.png` into every
    `android/app/src/main/res/mipmap-*/ic_launcher` slot, and sets
