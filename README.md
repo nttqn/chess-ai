@@ -12,16 +12,21 @@ lib/
   main.dart                 # Khởi tạo AdMob, chạy app
   game/
     chess_ai.dart            # Engine AI: minimax, đánh giá bàn cờ, các cấp độ
-    game_controller.dart     # Quản lý luật chơi, lượt đi, trạng thái ván cờ
+    game_controller.dart     # Quản lý luật chơi, lượt đi, trạng thái ván cờ, tính điểm
+    score_service.dart       # Công thức tính điểm + đăng nhập/bảng xếp hạng Play Games
   screens/
-    home_screen.dart         # Màn hình chọn cấp độ + quân cầm
-    game_screen.dart         # Màn hình chơi: bàn cờ, banner ads, kết quả ván
+    home_screen.dart         # Màn hình chọn cấp độ + quân cầm, trạng thái đăng nhập
+    game_screen.dart         # Màn hình chơi: bàn cờ, banner ads, kết quả ván + điểm
   services/
-    ads_service.dart         # Bọc AdMob banner/interstitial (đang dùng TEST ID)
+    ads_service.dart         # Bọc AdMob banner/interstitial
   widgets/
     chess_board.dart         # Vẽ bàn cờ 8x8, xử lý chọn quân/phong cấp
+tool/
+  patch_signing.js           # CI: gắn signingConfig release vào build.gradle(.kts)
+  proguard-rules-extra.pro   # CI: rule R8 giữ lại class WorkManager cần
+  games-ids.xml.template     # CI: sinh games-ids.xml cho Play Games Services
 .github/workflows/
-  build-apk.yml              # Build APK tự động trên GitHub Actions (cloud)
+  build-apk.yml              # Build APK/AAB tự động trên GitHub Actions (cloud)
 ```
 
 Thư mục `android/` (và `ios/`, `web/`...) **không** được commit vào git —
@@ -143,7 +148,36 @@ flutter run -d chrome
      nên dùng PNG không có góc bo sẵn để Android tự bo theo từng launcher)
      rồi push lại.
 
-5. **Google Play Console**
+5. **Google Play Games Services (đăng nhập + bảng xếp hạng)**
+   - App phải đã tồn tại trên Play Console trước (kể cả ở dạng nháp) thì
+     mới link Play Games Services được.
+   - Play Console → menu **Play Games Services** → **Setup and management**
+     → **Configuration**, làm theo hướng dẫn để tạo project (nếu chưa có
+     Google Cloud project liên kết, Play Console sẽ tự tạo giúp) và cấu
+     hình màn hình xin quyền OAuth (OAuth consent screen).
+   - Vẫn ở **Configuration**, tạo một **Leaderboard** mới (vd tên "Điểm cao
+     nhất"), ghi lại **Leaderboard ID** (dạng chuỗi dài, không phải tên
+     hiển thị).
+   - Vào **Configuration → Credentials**, bấm **Get resources** để tải file
+     XML — trong đó có `app_id` (một dãy số). Đây chính là giá trị cần cho
+     secret `PLAY_GAMES_APP_ID`.
+   - Bấm **Publishing** → **Publish** để Play Games Services có hiệu lực
+     (ở trạng thái Draft thì chỉ tài khoản tester dùng được).
+   - Thêm 2 secret vào GitHub (Settings → Secrets and variables → Actions):
+     | Secret | Giá trị |
+     |---|---|
+     | `PLAY_GAMES_APP_ID` | `app_id` lấy từ bước Credentials ở trên |
+     | `PLAY_GAMES_LEADERBOARD_ID` | Leaderboard ID vừa tạo |
+   - Thiếu 1 trong 2 secret trên thì build vẫn chạy bình thường, chỉ là
+     tính năng đăng nhập/bảng xếp hạng sẽ âm thầm không hoạt động (không
+     crash) cho tới khi bạn cấu hình xong — xem
+     [lib/game/score_service.dart](lib/game/score_service.dart).
+   - Trước khi test đăng nhập trên điện thoại thật: tài khoản Google trên
+     máy đó phải được thêm làm **tester** trong Play Console (mục **Testers**
+     dưới Play Games Services), nếu không sẽ bị từ chối truy cập vì app
+     chưa published rộng rãi.
+
+6. **Google Play Console**
    - Đăng ký tài khoản nhà phát triển (phí một lần 25 USD):
      https://play.google.com/console
    - Tạo app mới, điền mô tả, ảnh chụp màn hình, banner.
@@ -170,6 +204,30 @@ minimax + xác suất đi ngẫu nhiên (để mức Dễ luôn có thể thắn
 Muốn mạnh hơn nữa (ví dụ dùng engine Stockfish thật thay vì minimax tự
 viết), có thể thay `chess_ai.dart` bằng plugin `flutter_stockfish`, đổi
 lại phức tạp hơn vì cần đóng gói binary theo từng kiến trúc CPU (ARM).
+
+## Cách tính điểm
+
+Chỉ **thắng** (chiếu hết) mới được điểm — thua hoặc hòa thì không. Công
+thức trong `lib/game/score_service.dart`:
+
+```
+điểm = điểm_gốc_theo_cấp_độ × hệ_số_tốc_độ
+hệ_số_tốc_độ = clamp(1.5 − số_phút_chơi/20, 0.5, 1.5)
+```
+
+| Cấp độ      | Điểm gốc |
+|-------------|----------|
+| Dễ          | 100      |
+| Trung bình  | 250      |
+| Khó         | 500      |
+| Rất khó     | 1000     |
+
+Thắng càng nhanh, hệ số càng gần 1.5 (thắng gần như ngay lập tức); thắng
+càng lâu (từ 20 phút trở lên), hệ số giảm dần về mức sàn 0.5 chứ không về
+0, nên một ván thắng chậm vẫn luôn được điểm. Điểm cao nhất được lưu cục
+bộ trên máy (theo từng cấp độ + tổng thể, qua `shared_preferences`) và
+đồng thời nộp lên bảng xếp hạng Play Games Services nếu người chơi đã
+đăng nhập.
 
 ## Đưa code lên GitHub
 

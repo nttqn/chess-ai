@@ -4,6 +4,7 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 import '../game/chess_ai.dart';
 import '../game/game_controller.dart';
+import '../game/score_service.dart';
 import '../services/ads_service.dart';
 import '../widgets/chess_board.dart';
 
@@ -78,31 +79,61 @@ class _GameScreenState extends State<GameScreen> {
   void _showGameOverDialog() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Kết thúc ván cờ'),
-        content: Text(_resultMessage()),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              Navigator.of(context).pop();
-            },
-            child: const Text('Về màn hình chính'),
-          ),
-          FilledButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              setState(() {
-                _gameOverHandled = false;
-                _controller.newGame(
-                  humanColor: widget.humanColor,
-                  difficulty: widget.difficulty,
-                );
-              });
-            },
-            child: const Text('Chơi lại'),
-          ),
-        ],
+      builder: (context) => AnimatedBuilder(
+        animation: _controller,
+        builder: (context, _) {
+          final score = _controller.lastScore;
+          final best = _controller.bestScoreAfterThisGame;
+          return AlertDialog(
+            title: const Text('Kết thúc ván cờ'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(_resultMessage()),
+                if (score != null) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    'Điểm ván này: $score',
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleMedium
+                        ?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  if (best != null)
+                    Text(
+                      best == score
+                          ? 'Kỷ lục mới cho cấp độ ${widget.difficulty.label}! 🏆'
+                          : 'Kỷ lục cấp độ ${widget.difficulty.label}: $best',
+                      style: TextStyle(color: Colors.black54),
+                    ),
+                ],
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  Navigator.of(context).pop();
+                },
+                child: const Text('Về màn hình chính'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  setState(() {
+                    _gameOverHandled = false;
+                    _controller.newGame(
+                      humanColor: widget.humanColor,
+                      difficulty: widget.difficulty,
+                    );
+                  });
+                },
+                child: const Text('Chơi lại'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -119,6 +150,11 @@ class _GameScreenState extends State<GameScreen> {
       appBar: AppBar(
         title: Text('Chess with AI · ${widget.difficulty.label}'),
         actions: [
+          IconButton(
+            tooltip: 'Bảng xếp hạng',
+            icon: const Icon(Icons.leaderboard),
+            onPressed: () => ScoreService.instance.showLeaderboard(),
+          ),
           IconButton(
             tooltip: 'Đi lại nước trước',
             icon: const Icon(Icons.undo),

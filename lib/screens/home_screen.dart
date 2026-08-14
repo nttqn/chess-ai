@@ -2,6 +2,7 @@ import 'package:chess/chess.dart' as chesslib;
 import 'package:flutter/material.dart';
 
 import '../game/chess_ai.dart';
+import '../game/score_service.dart';
 import 'game_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -14,6 +15,68 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   Difficulty _difficulty = Difficulty.medium;
   chesslib.Color _humanColor = chesslib.Color.WHITE;
+
+  bool _signedIn = false;
+  String? _playerName;
+  int _bestScore = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshStatus();
+  }
+
+  Future<void> _refreshStatus() async {
+    await ScoreService.instance.trySilentSignIn();
+    final signedIn = await ScoreService.instance.isSignedIn();
+    final name = signedIn ? await ScoreService.instance.playerName() : null;
+    final best = await ScoreService.instance.bestScoreOverall();
+    if (!mounted) return;
+    setState(() {
+      _signedIn = signedIn;
+      _playerName = name;
+      _bestScore = best;
+    });
+  }
+
+  Future<void> _handleSignIn() => _refreshStatus();
+
+  Widget _buildPlayGamesStatus() {
+    return Column(
+      children: [
+        Wrap(
+          alignment: WrapAlignment.center,
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            if (_signedIn)
+              Chip(
+                avatar: const Icon(Icons.check_circle, color: Colors.green, size: 18),
+                label: Text(_playerName ?? 'Đã đăng nhập'),
+              )
+            else
+              OutlinedButton.icon(
+                onPressed: _handleSignIn,
+                icon: const Icon(Icons.login),
+                label: const Text('Đăng nhập Play Games'),
+              ),
+            OutlinedButton.icon(
+              onPressed: () => ScoreService.instance.showLeaderboard(),
+              icon: const Icon(Icons.leaderboard),
+              label: const Text('Bảng xếp hạng'),
+            ),
+          ],
+        ),
+        if (_bestScore > 0) ...[
+          const SizedBox(height: 8),
+          Text(
+            'Điểm cao nhất của bạn: $_bestScore',
+            style: const TextStyle(color: Colors.black54),
+          ),
+        ],
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -45,7 +108,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   'Đấu cờ vua với máy tính',
                   style: TextStyle(color: Colors.black54),
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 20),
+                _buildPlayGamesStatus(),
+                const SizedBox(height: 24),
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
@@ -94,8 +159,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: 40),
                 FilledButton.icon(
-                  onPressed: () {
-                    Navigator.of(context).push(
+                  onPressed: () async {
+                    await Navigator.of(context).push(
                       MaterialPageRoute(
                         builder: (_) => GameScreen(
                           difficulty: _difficulty,
@@ -103,6 +168,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                     );
+                    _refreshStatus();
                   },
                   icon: const Icon(Icons.play_arrow),
                   label: const Padding(

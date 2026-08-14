@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:chess/chess.dart' as chesslib;
 import 'package:flutter/foundation.dart';
 
 import 'chess_ai.dart';
+import 'score_service.dart';
 
 enum GameStatus { playing, checkmate, stalemate, draw }
 
@@ -20,6 +23,17 @@ class GameController extends ChangeNotifier {
   String? lastMoveFrom;
   String? lastMoveTo;
   final List<String> moveHistorySan = [];
+
+  DateTime _startTime = DateTime.now();
+  bool _scoreHandled = false;
+
+  /// Points earned for the game that just ended, or null if the player
+  /// hasn't won a game yet this session. Set synchronously (from a pure
+  /// function of difficulty + elapsed time) so the UI can show it
+  /// immediately; [bestScoreAfterThisGame] follows shortly after once the
+  /// local best-score lookup resolves.
+  int? lastScore;
+  int? bestScoreAfterThisGame;
 
   GameController({
     chesslib.Color humanColor = chesslib.Color.WHITE,
@@ -69,6 +83,10 @@ class GameController extends ChangeNotifier {
     lastMoveTo = null;
     isAiThinking = false;
     moveHistorySan.clear();
+    _startTime = DateTime.now();
+    _scoreHandled = false;
+    lastScore = null;
+    bestScoreAfterThisGame = null;
     notifyListeners();
     if (humanColor == chesslib.Color.BLACK) {
       _scheduleAiMove();
@@ -126,6 +144,7 @@ class GameController extends ChangeNotifier {
     selectedSquare = null;
     legalTargets = [];
     _applyMove(from, square, promotion: promotion);
+    _maybeAwardScore();
     notifyListeners();
 
     if (!isGameOver) {
@@ -170,10 +189,34 @@ class GameController extends ChangeNotifier {
       final result = await _ai.chooseMove(_game);
       if (result != null) {
         _applyMove(result.from, result.to, promotion: result.promotion);
+        _maybeAwardScore();
       }
       isAiThinking = false;
       notifyListeners();
     });
+  }
+
+  /// Only the player winning by checkmate earns points — losses and draws
+  /// don't. Runs once per game (guarded by [_scoreHandled]): the score
+  /// itself is a pure function of difficulty + elapsed time so it's set
+  /// immediately, while persisting the local best and submitting to the
+  /// Play Games leaderboard happen in the background and notify again once
+  /// they resolve.
+  void _maybeAwardScore() {
+    if (_scoreHandled || !isGameOver) return;
+    _scoreHandled = true;
+    if (winner != humanColor) return;
+
+    final elapsed = DateTime.now().difference(_startTime);
+    lastScore = calculateScore(difficulty: difficulty, elapsed: elapsed);
+    unawaited(_persistAndSubmitScore(lastScore!));
+  }
+
+  Future<void> _persistAndSubmitScore(int score) async {
+    bestScoreAfterThisGame =
+        await ScoreService.instance.recordLocalBest(difficulty, score);
+    notifyListeners();
+    await ScoreService.instance.submitScore(score);
   }
 
   /// Undo the player's last move together with the AI reply that followed

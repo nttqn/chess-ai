@@ -43,6 +43,30 @@ jobs:
           sed -i -E 's/android:label="[^"]*"/android:label="Chess with AI"/g' "$MANIFEST"
           cat "$MANIFEST"
 
+      # Play Games Services (sign-in + leaderboard) needs an app_id string
+      # resource (from games-ids.xml, downloaded from Play Console → Play
+      # Games Services → Setup and management → Configuration →
+      # Credentials) plus two manifest meta-data entries. Without the
+      # PLAY_GAMES_APP_ID secret this uses a placeholder — sign-in and
+      # leaderboard calls then just fail silently (every call site in
+      # lib/game/score_service.dart is wrapped in try/catch) rather than
+      # breaking the build.
+      - name: Configure Play Games Services
+        env:
+          PLAY_GAMES_APP_ID: ${{ secrets.PLAY_GAMES_APP_ID }}
+        run: |
+          set -e
+          APP_ID="${PLAY_GAMES_APP_ID:-000000000000}"
+          if [ -z "$PLAY_GAMES_APP_ID" ]; then
+            echo "::warning::PLAY_GAMES_APP_ID secret not set — Play Games sign-in/leaderboard will silently do nothing until you configure Play Games Services (see README)."
+          fi
+          mkdir -p android/app/src/main/res/values
+          sed -e "s/__APP_ID__/${APP_ID}/" -e "s/__PACKAGE_NAME__/com.trungchess.chess_app/" \
+            tool/games-ids.xml.template > android/app/src/main/res/values/games-ids.xml
+          MANIFEST=android/app/src/main/AndroidManifest.xml
+          sed -i "s#</application>#    <meta-data android:name=\"com.google.android.gms.games.APP_ID\" android:value=\"@string/app_id\"/>\n    <meta-data android:name=\"com.google.android.gms.version\" android:value=\"@integer/google_play_services_version\"/>\n  </application>#" "$MANIFEST"
+          cat android/app/src/main/res/values/games-ids.xml
+
       # google_mobile_ads requires minSdk 24+ (and a recent compileSdk).
       # flutter create defaults these to `flutter.minSdkVersion` /
       # `flutter.compileSdkVersion`, which can lag behind what current
@@ -127,11 +151,19 @@ jobs:
         run: flutter analyze || true
 
       - name: Build release APK
-        run: flutter build apk --release
+        env:
+          PLAY_GAMES_LEADERBOARD_ID: ${{ secrets.PLAY_GAMES_LEADERBOARD_ID }}
+        run: |
+          LB_ID="${PLAY_GAMES_LEADERBOARD_ID:-REPLACE_ME_LEADERBOARD_ID}"
+          flutter build apk --release --dart-define=PLAY_GAMES_LEADERBOARD_ID="$LB_ID"
 
       # Play Console requires the App Bundle format for new app uploads.
       - name: Build release App Bundle
-        run: flutter build appbundle --release
+        env:
+          PLAY_GAMES_LEADERBOARD_ID: ${{ secrets.PLAY_GAMES_LEADERBOARD_ID }}
+        run: |
+          LB_ID="${PLAY_GAMES_LEADERBOARD_ID:-REPLACE_ME_LEADERBOARD_ID}"
+          flutter build appbundle --release --dart-define=PLAY_GAMES_LEADERBOARD_ID="$LB_ID"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4

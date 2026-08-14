@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Copied to android/app/src/main/res/values/games-ids.xml by the CI
+  workflow's "Configure Play Games Services" step, with __APP_ID__ and
+  __PACKAGE_NAME__ substituted. AndroidManifest.xml's
+  com.google.android.gms.games.APP_ID meta-data reads @string/app_id from
+  here. See README.md "Google Play Games Services" for where these values
+  come from.
+-->
+<resources>
+    <string name="app_id" translatable="false">__APP_ID__</string>
+    <string name="package_name" translatable="false">__PACKAGE_NAME__</string>
+</resources>

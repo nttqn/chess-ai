@@ -81,6 +81,19 @@ regenerates `android/` from scratch on every run via `flutter create
    rejected by Play Console). The actual keystore file lives outside the
    repo (never commit one — `.gitignore` also blocks
    `*.jks`/`*.keystore`/`key.properties` as a backstop).
+7. Writes `android/app/src/main/res/values/games-ids.xml` (from
+   `tool/games-ids.xml.template`, with `__APP_ID__`/`__PACKAGE_NAME__`
+   substituted via `sed`) and adds the two
+   `com.google.android.gms.games.APP_ID` / `com.google.android.gms.version`
+   `meta-data` entries to the manifest, for Play Games Services sign-in +
+   leaderboards. `PLAY_GAMES_APP_ID` falls back to a placeholder if the
+   secret is unset — same "fails silently, doesn't break the build"
+   pattern as `ADMOB_APP_ID`. The leaderboard ID is a separate thing: it's
+   not read from a resource, it's baked into the Dart build itself via
+   `--dart-define=PLAY_GAMES_LEADERBOARD_ID=...` on the `flutter build
+   apk|appbundle` steps (see `PlayGamesConfig` in
+   `lib/game/score_service.dart`), because Dart code can't read Android
+   string resources at runtime without another plugin.
 
 If you ever need to hand-edit Android native files (custom launcher icon,
 permanent signing config, etc.), the intended path is: install Flutter
@@ -121,6 +134,16 @@ package worth knowing before touching AI or game-state code:
   squares; `make_move(Move)`/`undo_move()` are the lower-level
   int-indexed versions used inside the minimax search for speed.
 
+**`games_services` API notes** (v5.3.0, `package:games_services/games_services.dart`):
+`GamesServices.signIn()` handles both silent and interactive auth — safe
+to call unconditionally on every app start (that's what
+`ScoreService.trySilentSignIn` does). `GamesServices.submitScore(score:
+Score(androidLeaderboardID: ..., value: ...))` and
+`GamesServices.showLeaderboards(androidLeaderboardID: ...)` are the
+submit/view calls; there's no `androidID` field on `Score` despite what
+some docs/comments say — it's `androidLeaderboardID`. `PlayerData` (from
+`GamesServices.player`/`getPlayerName()`) has `displayName`, not `name`.
+
 **AI (`lib/game/chess_ai.dart`)** is a hand-written minimax + alpha-beta
 search over that same `Chess` object — not a real chess engine (no
 Stockfish/UCI). `Difficulty` (easy/medium/hard/expert) maps to a search
@@ -148,12 +171,26 @@ always undoes in pairs (the AI's reply, then the player's move) so the
 player lands back on their own turn rather than the AI's.
 
 **Ads (`lib/services/ads_service.dart`)** is a singleton wrapping
-`google_mobile_ads`, currently hardcoded to Google's public test ad unit
-IDs. Real IDs get swapped in here (and `ADMOB_APP_ID` set as a GitHub
-secret for the manifest) before publishing — see README.md's pre-publish
-checklist. The interstitial is deliberately throttled to roughly every
-other finished game (`_gamesSinceInterstitial`), not shown after every
-single game.
+`google_mobile_ads`. `bannerAdUnitId`/`interstitialAdUnitId` hold the real
+ad unit IDs (swapped in from Google's test IDs once AdMob was set up —
+don't revert these to test IDs). `ADMOB_APP_ID` is set as a GitHub secret
+for the manifest, separately from the ad unit IDs (see README.md's
+pre-publish checklist for the App-ID-vs-ad-unit-ID distinction). The
+interstitial is deliberately throttled to roughly every other finished
+game (`_gamesSinceInterstitial`), not shown after every single game.
 
-`shared_preferences` is in `pubspec.yaml` but not wired to anything yet —
-no persistence (saved games, settings) is implemented currently.
+**Scoring + Play Games Services (`lib/game/score_service.dart`)**: only a
+checkmate win earns points — `calculateScore()` is a pure function of
+`Difficulty` (base points 100/250/500/1000) and elapsed `Duration` (a
+0.5x–1.5x speed multiplier, floored not zeroed, so a slow win still
+counts). `GameController` tracks `_startTime`/calls this once per game
+(`_maybeAwardScore`, guarded by `_scoreHandled`) and fires off persistence
++ leaderboard submission in the background via `unawaited()` so the UI
+isn't blocked on network calls. Local best scores persist through
+`shared_preferences` (`best_score_overall` and `best_score_<difficulty
+name>` keys) independently of whether Play Games sign-in ever succeeds —
+that's the fallback source of truth. The `games_services` package
+(Abedalkareem, Play Games Services v2) wraps sign-in/leaderboard; every
+call in `ScoreService` swallows its own exceptions, since "not signed in
+yet" / "Play Games unavailable" / "leaderboard not configured" are all
+expected, non-fatal states here, not bugs to surface to the player.
