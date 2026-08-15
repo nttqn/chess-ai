@@ -7,6 +7,7 @@ import '../game/game_controller.dart';
 import '../game/score_service.dart';
 import '../services/ads_service.dart';
 import '../widgets/chess_board.dart';
+import 'history_screen.dart';
 
 class GameScreen extends StatefulWidget {
   final Difficulty difficulty;
@@ -160,6 +161,15 @@ class _GameScreenState extends State<GameScreen> {
       appBar: AppBar(
         title: const Text('Chess with AI'),
         actions: [
+          IconButton(
+            tooltip: 'Lịch sử',
+            icon: const Icon(Icons.history),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const HistoryScreen()),
+              );
+            },
+          ),
           IconButton(
             tooltip: 'Bảng xếp hạng',
             icon: const Icon(Icons.leaderboard),

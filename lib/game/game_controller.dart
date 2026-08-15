@@ -209,12 +209,20 @@ class GameController extends ChangeNotifier {
 
     final elapsed = DateTime.now().difference(_startTime);
     lastScore = calculateScore(difficulty: difficulty, elapsed: elapsed);
-    unawaited(_persistAndSubmitScore(lastScore!));
+    unawaited(_persistAndSubmitScore(lastScore!, elapsed));
   }
 
-  Future<void> _persistAndSubmitScore(int score) async {
+  Future<void> _persistAndSubmitScore(int score, Duration elapsed) async {
     bestScoreAfterThisGame =
         await ScoreService.instance.recordLocalBest(difficulty, score);
+    await ScoreService.instance.addHistoryEntry(
+      GameHistoryEntry(
+        difficulty: difficulty,
+        elapsed: elapsed,
+        score: score,
+        playedAt: DateTime.now(),
+      ),
+    );
     notifyListeners();
     await ScoreService.instance.submitScore(score);
   }

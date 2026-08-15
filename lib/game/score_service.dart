@@ -1,7 +1,44 @@
+import 'dart:convert';
+
 import 'package:games_services/games_services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'chess_ai.dart';
+
+const String _historyKey = 'game_history';
+const int _maxHistoryEntries = 50;
+
+/// One completed win: which difficulty, how long it took, and the score
+/// earned. Only wins are recorded — see [GameController.\_maybeAwardScore].
+class GameHistoryEntry {
+  final Difficulty difficulty;
+  final Duration elapsed;
+  final int score;
+  final DateTime playedAt;
+
+  const GameHistoryEntry({
+    required this.difficulty,
+    required this.elapsed,
+    required this.score,
+    required this.playedAt,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'difficulty': difficulty.name,
+        'elapsedSeconds': elapsed.inSeconds,
+        'score': score,
+        'playedAt': playedAt.toIso8601String(),
+      };
+
+  factory GameHistoryEntry.fromJson(Map<String, dynamic> json) {
+    return GameHistoryEntry(
+      difficulty: Difficulty.values.byName(json['difficulty'] as String),
+      elapsed: Duration(seconds: json['elapsedSeconds'] as int),
+      score: json['score'] as int,
+      playedAt: DateTime.parse(json['playedAt'] as String),
+    );
+  }
+}
 
 /// Play Games Services App ID and leaderboard ID come from Play Console →
 /// Play Games Services → Setup and management, injected at build time via
@@ -110,5 +147,36 @@ class ScoreService {
   Future<int> bestScoreFor(Difficulty difficulty) async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getInt('best_score_${difficulty.name}') ?? 0;
+  }
+
+  Future<void> addHistoryEntry(GameHistoryEntry entry) async {
+    final prefs = await SharedPreferences.getInstance();
+    final entries = await _loadHistoryRaw(prefs);
+    entries.add(entry);
+    if (entries.length > _maxHistoryEntries) {
+      entries.removeRange(0, entries.length - _maxHistoryEntries);
+    }
+    await prefs.setString(
+      _historyKey,
+      jsonEncode(entries.map((e) => e.toJson()).toList()),
+    );
+  }
+
+  /// Most recently played first.
+  Future<List<GameHistoryEntry>> loadHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    final entries = await _loadHistoryRaw(prefs);
+    return entries.reversed.toList();
+  }
+
+  Future<List<GameHistoryEntry>> _loadHistoryRaw(
+    SharedPreferences prefs,
+  ) async {
+    final raw = prefs.getString(_historyKey);
+    if (raw == null) return [];
+    final decoded = jsonDecode(raw) as List;
+    return decoded
+        .map((e) => GameHistoryEntry.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 }
