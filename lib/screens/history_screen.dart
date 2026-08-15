@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../game/chess_ai.dart';
 import '../game/score_service.dart';
 
 class HistoryScreen extends StatefulWidget {
