@@ -27,6 +27,7 @@ class _GameScreenState extends State<GameScreen> {
   BannerAd? _bannerAd;
   bool _bannerLoaded = false;
   bool _gameOverHandled = false;
+  int? _bestScoreForDifficulty;
 
   @override
   void initState() {
@@ -39,7 +40,16 @@ class _GameScreenState extends State<GameScreen> {
     _bannerAd = AdsService.instance.createBannerAd(
       onLoaded: () => setState(() => _bannerLoaded = true),
     );
+    ScoreService.instance.bestScoreFor(widget.difficulty).then((best) {
+      if (mounted) setState(() => _bestScoreForDifficulty = best);
+    });
   }
+
+  /// The score chip shows the best score for this difficulty once known,
+  /// upgrading to the controller's live best-after-this-game figure as
+  /// soon as a win updates it.
+  int get _displayScore =>
+      _controller.bestScoreAfterThisGame ?? _bestScoreForDifficulty ?? 0;
 
   @override
   void dispose() {
@@ -148,7 +158,7 @@ class _GameScreenState extends State<GameScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Chess with AI · ${widget.difficulty.label}'),
+        title: const Text('Chess with AI'),
         actions: [
           IconButton(
             tooltip: 'Bảng xếp hạng',
@@ -179,22 +189,45 @@ class _GameScreenState extends State<GameScreen> {
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  if (_controller.isAiThinking)
-                    const Padding(
-                      padding: EdgeInsets.only(right: 8),
-                      child: SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: _InfoChip(
+                        icon: Icons.speed,
+                        label: widget.difficulty.label,
                       ),
                     ),
-                  Text(
-                    _turnLabel,
-                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (_controller.isAiThinking)
+                        const Padding(
+                          padding: EdgeInsets.only(right: 8),
+                          child: SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        ),
+                      Text(
+                        _turnLabel,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                    ],
+                  ),
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: _InfoChip(
+                        icon: Icons.stars,
+                        iconColor: Colors.amber[700],
+                        label: '$_displayScore',
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -216,6 +249,38 @@ class _GameScreenState extends State<GameScreen> {
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Small pill used for the difficulty and score readouts flanking the turn
+/// indicator — compact enough to sit in the corners without crowding it.
+class _InfoChip extends StatelessWidget {
+  final IconData icon;
+  final Color? iconColor;
+  final String label;
+
+  const _InfoChip({required this.icon, required this.label, this.iconColor});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: iconColor ?? Colors.black54),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+          ),
+        ],
       ),
     );
   }
