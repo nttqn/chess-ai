@@ -1,7 +1,7 @@
 name: chess_app
 description: "Chess with AI - Chơi cờ vua với máy trên Android, nhiều cấp độ khó dễ."
 publish_to: 'none'
-version: 1.0.0+2
+version: 1.0.1+3
 
 environment:
   sdk: '>=3.12.0 <4.0.0'
