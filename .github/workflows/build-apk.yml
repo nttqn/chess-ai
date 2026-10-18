@@ -43,35 +43,6 @@ jobs:
           sed -i -E 's/android:label="[^"]*"/android:label="Chess with AI"/g' "$MANIFEST"
           cat "$MANIFEST"
 
-      # Android 15 (targetSdk 35+) draws edge-to-edge by default; Play
-      # Console's pre-launch report flags apps that don't explicitly handle
-      # it ("some users may not see edge-to-edge"). Flutter's own SafeArea
-      # widgets already pad content once the native window stops fitting
-      # system windows itself (see tool/MainActivity.kt.template).
-      - name: Enable edge-to-edge for Android 15
-        run: |
-          set -e
-          MAIN_ACTIVITY=android/app/src/main/kotlin/com/trungchess/chess_app/MainActivity.kt
-          cp tool/MainActivity.kt.template "$MAIN_ACTIVITY"
-          for f in android/app/build.gradle android/app/build.gradle.kts; do
-            if [ -f "$f" ]; then
-              if grep -q "^dependencies" "$f"; then
-                if [[ "$f" == *.kts ]]; then
-                  perl -0777 -pi -e 's/dependencies \{/dependencies {\n    implementation("androidx.core:core-ktx:1.13.1")/' "$f"
-                else
-                  perl -0777 -pi -e 's/dependencies \{/dependencies {\n    implementation "androidx.core:core-ktx:1.13.1"/' "$f"
-                fi
-              else
-                if [[ "$f" == *.kts ]]; then
-                  printf '\ndependencies {\n    implementation("androidx.core:core-ktx:1.13.1")\n}\n' >> "$f"
-                else
-                  printf '\ndependencies {\n    implementation "androidx.core:core-ktx:1.13.1"\n}\n' >> "$f"
-                fi
-              fi
-              grep -n -A2 'dependencies {' "$f"
-            fi
-          done
-
       # Play Games Services (sign-in + leaderboard) needs an app_id string
       # resource (from games-ids.xml, downloaded from Play Console → Play
       # Games Services → Setup and management → Configuration →
