@@ -4,6 +4,7 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 import '../game/chess_ai.dart';
 import '../game/game_controller.dart';
+import '../game/game_save_service.dart';
 import '../game/score_service.dart';
 import '../services/ads_service.dart';
 import '../widgets/chess_board.dart';
@@ -12,11 +13,15 @@ import 'history_screen.dart';
 class GameScreen extends StatefulWidget {
   final Difficulty difficulty;
   final chesslib.Color humanColor;
+  final bool vsHuman;
+  final SavedGame? resume;
 
   const GameScreen({
     super.key,
     required this.difficulty,
     required this.humanColor,
+    this.vsHuman = false,
+    this.resume,
   });
 
   @override
@@ -33,17 +38,22 @@ class _GameScreenState extends State<GameScreen> {
   @override
   void initState() {
     super.initState();
-    _controller = GameController(
-      humanColor: widget.humanColor,
-      difficulty: widget.difficulty,
-    );
+    _controller = widget.resume != null
+        ? GameController.resume(widget.resume!)
+        : GameController(
+            humanColor: widget.humanColor,
+            difficulty: widget.difficulty,
+            vsHuman: widget.vsHuman,
+          );
     _controller.addListener(_onControllerChanged);
     _bannerAd = AdsService.instance.createBannerAd(
       onLoaded: () => setState(() => _bannerLoaded = true),
     );
-    ScoreService.instance.bestScoreFor(widget.difficulty).then((best) {
-      if (mounted) setState(() => _bestScoreForDifficulty = best);
-    });
+    if (!widget.vsHuman) {
+      ScoreService.instance.bestScoreFor(widget.difficulty).then((best) {
+        if (mounted) setState(() => _bestScoreForDifficulty = best);
+      });
+    }
   }
 
   /// The score chip shows the best score for this difficulty once known,
@@ -74,6 +84,11 @@ class _GameScreenState extends State<GameScreen> {
   String _resultMessage() {
     switch (_controller.status) {
       case GameStatus.checkmate:
+        if (widget.vsHuman) {
+          final winnerLabel =
+              _controller.winner == chesslib.Color.WHITE ? 'Trắng' : 'Đen';
+          return 'Chiếu hết! $winnerLabel thắng! 🎉';
+        }
         final humanWon = _controller.winner == widget.humanColor;
         return humanWon
             ? 'Chiếu hết! Bạn đã thắng! 🎉'
@@ -137,6 +152,7 @@ class _GameScreenState extends State<GameScreen> {
                     _controller.newGame(
                       humanColor: widget.humanColor,
                       difficulty: widget.difficulty,
+                      vsHuman: widget.vsHuman,
                     );
                   });
                 },
@@ -150,6 +166,11 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   String get _turnLabel {
+    if (widget.vsHuman) {
+      return _controller.turn == chesslib.Color.WHITE
+          ? 'Lượt Trắng'
+          : 'Lượt Đen';
+    }
     if (_controller.isAiThinking) return 'Máy đang suy nghĩ...';
     if (_controller.isHumanTurn) return 'Lượt của bạn';
     return 'Lượt của đối thủ';
@@ -171,9 +192,19 @@ class _GameScreenState extends State<GameScreen> {
             },
           ),
           IconButton(
-            tooltip: 'Bảng xếp hạng',
-            icon: const Icon(Icons.leaderboard),
-            onPressed: () => ScoreService.instance.showLeaderboard(),
+            tooltip: widget.vsHuman
+                ? 'Gợi ý không khả dụng ở chế độ 2 người chơi'
+                : 'Gợi ý nước đi',
+            icon: _controller.isHintLoading
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.lightbulb_outline),
+            onPressed: widget.vsHuman || _controller.isGameOver
+                ? null
+                : () => _controller.requestHint(),
           ),
           IconButton(
             tooltip: 'Đi lại nước trước',
@@ -189,6 +220,7 @@ class _GameScreenState extends State<GameScreen> {
                 _controller.newGame(
                   humanColor: widget.humanColor,
                   difficulty: widget.difficulty,
+                  vsHuman: widget.vsHuman,
                 );
               });
             },
@@ -205,10 +237,15 @@ class _GameScreenState extends State<GameScreen> {
                   Expanded(
                     child: Align(
                       alignment: Alignment.centerLeft,
-                      child: _InfoChip(
-                        icon: Icons.speed,
-                        label: widget.difficulty.label,
-                      ),
+                      child: widget.vsHuman
+                          ? const _InfoChip(
+                              icon: Icons.people,
+                              label: '2 người chơi',
+                            )
+                          : _InfoChip(
+                              icon: Icons.speed,
+                              label: widget.difficulty.label,
+                            ),
                     ),
                   ),
                   Row(
@@ -232,11 +269,13 @@ class _GameScreenState extends State<GameScreen> {
                   Expanded(
                     child: Align(
                       alignment: Alignment.centerRight,
-                      child: _InfoChip(
-                        icon: Icons.stars,
-                        iconColor: Colors.amber[700],
-                        label: '$_displayScore',
-                      ),
+                      child: widget.vsHuman
+                          ? const SizedBox.shrink()
+                          : _InfoChip(
+                              icon: Icons.stars,
+                              iconColor: Colors.amber[700],
+                              label: '$_displayScore',
+                            ),
                     ),
                   ),
                 ],
