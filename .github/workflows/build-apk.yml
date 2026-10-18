@@ -150,30 +150,20 @@ jobs:
       - name: Analyze (non-blocking)
         run: flutter analyze || true
 
-      # PLAY_GAMES_ACHIEVEMENT_IDS is one comma-separated secret, fixed
-      # order: first win, 10 wins, 5-win streak, an Expert-difficulty win.
-      # Leave it unset (or an entry blank) to skip that achievement — see
-      # lib/game/score_service.dart's PlayGamesConfig.
       - name: Build release APK
         env:
           PLAY_GAMES_LEADERBOARD_ID: ${{ secrets.PLAY_GAMES_LEADERBOARD_ID }}
-          PLAY_GAMES_ACHIEVEMENT_IDS: ${{ secrets.PLAY_GAMES_ACHIEVEMENT_IDS }}
         run: |
           LB_ID="${PLAY_GAMES_LEADERBOARD_ID:-REPLACE_ME_LEADERBOARD_ID}"
-          flutter build apk --release \
-            --dart-define=PLAY_GAMES_LEADERBOARD_ID="$LB_ID" \
-            --dart-define=PLAY_GAMES_ACHIEVEMENT_IDS="$PLAY_GAMES_ACHIEVEMENT_IDS"
+          flutter build apk --release --dart-define=PLAY_GAMES_LEADERBOARD_ID="$LB_ID"
 
       # Play Console requires the App Bundle format for new app uploads.
       - name: Build release App Bundle
         env:
           PLAY_GAMES_LEADERBOARD_ID: ${{ secrets.PLAY_GAMES_LEADERBOARD_ID }}
-          PLAY_GAMES_ACHIEVEMENT_IDS: ${{ secrets.PLAY_GAMES_ACHIEVEMENT_IDS }}
         run: |
           LB_ID="${PLAY_GAMES_LEADERBOARD_ID:-REPLACE_ME_LEADERBOARD_ID}"
-          flutter build appbundle --release \
-            --dart-define=PLAY_GAMES_LEADERBOARD_ID="$LB_ID" \
-            --dart-define=PLAY_GAMES_ACHIEVEMENT_IDS="$PLAY_GAMES_ACHIEVEMENT_IDS"
+          flutter build appbundle --release --dart-define=PLAY_GAMES_LEADERBOARD_ID="$LB_ID"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4

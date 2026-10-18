@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:convert';
 
 import 'package:games_services/games_services.dart';
@@ -41,37 +40,17 @@ class GameHistoryEntry {
   }
 }
 
-/// Play Games Services App ID, leaderboard ID, and achievement IDs come
-/// from Play Console → Play Games Services → Setup and management,
-/// injected at build time via --dart-define (see
-/// .github/workflows/build-apk.yml). The defaults below are placeholders
-/// so local builds still compile — every call below is wrapped so a
-/// missing/placeholder ID just fails silently instead of crashing, same
-/// pattern as the AdMob test-ID fallback.
-///
-/// Achievement IDs are a single comma-separated secret
-/// (PLAY_GAMES_ACHIEVEMENT_IDS) in a fixed order: first win, 10 wins,
-/// 5-win streak, an Expert-difficulty win. Leave the secret unset (or an
-/// entry blank, e.g. "id1,,id3,id4") to skip that achievement.
+/// Play Games Services App ID and leaderboard ID come from Play Console →
+/// Play Games Services → Setup and management, injected at build time via
+/// --dart-define (see .github/workflows/build-apk.yml). The defaults below
+/// are placeholders so local builds still compile — every call below is
+/// wrapped so a missing/placeholder ID just fails silently instead of
+/// crashing, same pattern as the AdMob test-ID fallback.
 class PlayGamesConfig {
   static const String leaderboardId = String.fromEnvironment(
     'PLAY_GAMES_LEADERBOARD_ID',
     defaultValue: 'REPLACE_ME_LEADERBOARD_ID',
   );
-
-  static const String _achievementIdsRaw = String.fromEnvironment(
-    'PLAY_GAMES_ACHIEVEMENT_IDS',
-    defaultValue: '',
-  );
-  static final List<String> _achievementIds = _achievementIdsRaw.split(',');
-
-  static String _achievementId(int index) =>
-      index < _achievementIds.length ? _achievementIds[index].trim() : '';
-
-  static String get firstWinAchievementId => _achievementId(0);
-  static String get tenWinsAchievementId => _achievementId(1);
-  static String get winStreak5AchievementId => _achievementId(2);
-  static String get expertWinAchievementId => _achievementId(3);
 }
 
 const Map<Difficulty, int> _baseScoreByDifficulty = {
@@ -129,52 +108,6 @@ class ScoreService {
       );
     } catch (_) {
       // Not signed in, or the leaderboard ID hasn't been configured yet.
-    }
-  }
-
-  Future<void> showAchievements() async {
-    try {
-      await GamesServices.showAchievements();
-    } catch (_) {
-      // Not signed in, or no achievements configured yet.
-    }
-  }
-
-  Future<void> _unlockAchievement(String id) async {
-    if (id.isEmpty) return;
-    try {
-      await GamesServices.unlock(achievement: Achievement(androidID: id));
-    } catch (_) {
-      // Not signed in / achievement ID not configured — safe to ignore.
-    }
-  }
-
-  Future<void> resetWinStreak() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('stat_current_streak', 0);
-  }
-
-  /// Bumps the local win/streak counters after a win against the AI and
-  /// unlocks whichever Play Games achievements that just crossed their
-  /// threshold. Safe to call even with no achievement IDs configured.
-  Future<void> recordWinAndUnlockAchievements(Difficulty difficulty) async {
-    final prefs = await SharedPreferences.getInstance();
-    final totalWins = (prefs.getInt('stat_total_wins') ?? 0) + 1;
-    final streak = (prefs.getInt('stat_current_streak') ?? 0) + 1;
-    await prefs.setInt('stat_total_wins', totalWins);
-    await prefs.setInt('stat_current_streak', streak);
-
-    if (totalWins == 1) {
-      unawaited(_unlockAchievement(PlayGamesConfig.firstWinAchievementId));
-    }
-    if (totalWins == 10) {
-      unawaited(_unlockAchievement(PlayGamesConfig.tenWinsAchievementId));
-    }
-    if (streak == 5) {
-      unawaited(_unlockAchievement(PlayGamesConfig.winStreak5AchievementId));
-    }
-    if (difficulty == Difficulty.expert) {
-      unawaited(_unlockAchievement(PlayGamesConfig.expertWinAchievementId));
     }
   }
 

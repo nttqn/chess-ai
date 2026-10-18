@@ -2,12 +2,12 @@ import 'package:chess/chess.dart' as chesslib;
 import 'package:flutter/material.dart';
 
 import '../game/game_controller.dart';
-import '../game/settings_service.dart';
 
+const Color _lightSquare = Color(0xFFF0D9B5);
+const Color _darkSquare = Color(0xFFB58863);
 const Color _selectedHighlight = Color(0xAAF6F669);
 const Color _lastMoveHighlight = Color(0x66F6F669);
 const Color _checkHighlight = Color(0xAAEF5350);
-const Color _hintHighlight = Color(0x8842A5F5);
 
 const Map<String, String> _whiteGlyphs = {
   'k': '♔',
@@ -39,8 +39,7 @@ class ChessBoard extends StatelessWidget {
 
   const ChessBoard({super.key, required this.controller});
 
-  bool get _flipped =>
-      !controller.vsHuman && controller.humanColor == chesslib.Color.BLACK;
+  bool get _flipped => controller.humanColor == chesslib.Color.BLACK;
 
   String _squareAt(int row, int col) {
     final file = _flipped ? 7 - col : col;
@@ -62,7 +61,7 @@ class ChessBoard extends StatelessWidget {
   }
 
   Future<String?> _askPromotionPiece(BuildContext context) {
-    final isWhite = controller.turn == chesslib.Color.WHITE;
+    final isWhite = controller.humanColor == chesslib.Color.WHITE;
     final glyphs = isWhite ? _whiteGlyphs : _blackGlyphs;
     const choices = ['q', 'r', 'b', 'n'];
     const labels = {'q': 'Hậu', 'r': 'Xe', 'b': 'Tượng', 'n': 'Mã'};
@@ -97,7 +96,6 @@ class ChessBoard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final checkedKingSquare = _checkedKingSquare();
-    final theme = SettingsService.instance.boardTheme;
 
     return AspectRatio(
       aspectRatio: 1,
@@ -114,10 +112,8 @@ class ChessBoard extends StatelessWidget {
                 final isLastMove = square == controller.lastMoveFrom ||
                     square == controller.lastMoveTo;
                 final isCheckedKing = square == checkedKingSquare;
-                final isHint = square == controller.hintFrom ||
-                    square == controller.hintTo;
 
-                Color background = isDark ? theme.dark : theme.light;
+                Color background = isDark ? _darkSquare : _lightSquare;
 
                 return Expanded(
                   child: GestureDetector(
@@ -132,8 +128,6 @@ class ChessBoard extends StatelessWidget {
                         children: [
                           if (isLastMove)
                             Container(color: _lastMoveHighlight),
-                          if (isHint)
-                            Container(color: _hintHighlight),
                           if (isCheckedKing)
                             Container(color: _checkHighlight),
                           if (isSelected)

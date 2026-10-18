@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 
-import 'game/settings_service.dart';
 import 'screens/home_screen.dart';
 import 'services/ads_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await SettingsService.instance.load();
   await AdsService.instance.initialize();
   runApp(const ChessApp());
 }

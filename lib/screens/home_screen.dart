@@ -2,10 +2,8 @@ import 'package:chess/chess.dart' as chesslib;
 import 'package:flutter/material.dart';
 
 import '../game/chess_ai.dart';
-import '../game/game_save_service.dart';
 import '../game/score_service.dart';
 import 'game_screen.dart';
-import 'settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -17,19 +15,15 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   Difficulty _difficulty = Difficulty.medium;
   chesslib.Color _humanColor = chesslib.Color.WHITE;
-  bool _vsHuman = false;
 
   bool _signedIn = false;
   String? _playerName;
   int _bestScore = 0;
 
-  SavedGame? _savedGame;
-
   @override
   void initState() {
     super.initState();
     _refreshStatus();
-    _loadSavedGame();
   }
 
   Future<void> _refreshStatus() async {
@@ -45,21 +39,7 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  Future<void> _loadSavedGame() async {
-    final saved = await GameSaveService.instance.load();
-    if (!mounted) return;
-    setState(() => _savedGame = saved);
-  }
-
   Future<void> _handleSignIn() => _refreshStatus();
-
-  Future<void> _playGame(GameScreen screen) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => screen),
-    );
-    _refreshStatus();
-    _loadSavedGame();
-  }
 
   Widget _buildPlayGamesStatus() {
     return Column(
@@ -85,11 +65,6 @@ class _HomeScreenState extends State<HomeScreen> {
               icon: const Icon(Icons.leaderboard),
               label: const Text('Bảng xếp hạng'),
             ),
-            OutlinedButton.icon(
-              onPressed: () => ScoreService.instance.showAchievements(),
-              icon: const Icon(Icons.emoji_events_outlined),
-              label: const Text('Thành tích'),
-            ),
           ],
         ),
         if (_bestScore > 0) ...[
@@ -106,27 +81,10 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        actions: [
-          IconButton(
-            tooltip: 'Cài đặt',
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const SettingsScreen()),
-              );
-            },
-          ),
-        ],
-      ),
       body: SafeArea(
-        top: false,
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+            padding: const EdgeInsets.all(24),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -152,113 +110,66 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: 20),
                 _buildPlayGamesStatus(),
-                if (_savedGame != null) ...[
-                  const SizedBox(height: 24),
-                  Card(
-                    color: Theme.of(context).colorScheme.secondaryContainer,
-                    child: ListTile(
-                      leading: const Icon(Icons.play_circle_fill),
-                      title: const Text('Tiếp tục ván đang chơi'),
-                      subtitle: Text(
-                        _savedGame!.vsHuman
-                            ? '2 người chơi'
-                            : 'Cấp độ: ${_savedGame!.difficulty.label}',
-                      ),
-                      onTap: () => _playGame(
-                        GameScreen(
-                          difficulty: _savedGame!.difficulty,
-                          humanColor: _savedGame!.humanColor,
-                          vsHuman: _savedGame!.vsHuman,
-                          resume: _savedGame,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
                 const SizedBox(height: 24),
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    'Chế độ',
+                    'Cấp độ',
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                 ),
                 const SizedBox(height: 8),
-                SegmentedButton<bool>(
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: Difficulty.values.map((d) {
+                    final selected = d == _difficulty;
+                    return ChoiceChip(
+                      label: Text(d.label),
+                      selected: selected,
+                      onSelected: (_) => setState(() => _difficulty = d),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 24),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Bạn cầm quân',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                SegmentedButton<chesslib.Color>(
                   segments: const [
                     ButtonSegment(
-                      value: false,
-                      label: Text('Đấu với máy'),
-                      icon: Icon(Icons.smart_toy_outlined),
+                      value: chesslib.Color.WHITE,
+                      label: Text('Trắng'),
+                      icon: Text('♙'),
                     ),
                     ButtonSegment(
-                      value: true,
-                      label: Text('2 người chơi'),
-                      icon: Icon(Icons.people_outline),
+                      value: chesslib.Color.BLACK,
+                      label: Text('Đen'),
+                      icon: Text('♟'),
                     ),
                   ],
-                  selected: {_vsHuman},
+                  selected: {_humanColor},
                   onSelectionChanged: (s) =>
-                      setState(() => _vsHuman = s.first),
+                      setState(() => _humanColor = s.first),
                 ),
-                if (!_vsHuman) ...[
-                  const SizedBox(height: 24),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'Cấp độ',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: Difficulty.values.map((d) {
-                      final selected = d == _difficulty;
-                      return ChoiceChip(
-                        label: Text(d.label),
-                        selected: selected,
-                        onSelected: (_) => setState(() => _difficulty = d),
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 24),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'Bạn cầm quân',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  SegmentedButton<chesslib.Color>(
-                    segments: const [
-                      ButtonSegment(
-                        value: chesslib.Color.WHITE,
-                        label: Text('Trắng'),
-                        icon: Text('♙'),
-                      ),
-                      ButtonSegment(
-                        value: chesslib.Color.BLACK,
-                        label: Text('Đen'),
-                        icon: Text('♟'),
-                      ),
-                    ],
-                    selected: {_humanColor},
-                    onSelectionChanged: (s) =>
-                        setState(() => _humanColor = s.first),
-                  ),
-                ],
                 const SizedBox(height: 40),
                 FilledButton.icon(
-                  onPressed: () => _playGame(
-                    GameScreen(
-                      difficulty: _difficulty,
-                      humanColor: _humanColor,
-                      vsHuman: _vsHuman,
-                    ),
-                  ),
+                  onPressed: () async {
+                    await Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => GameScreen(
+                          difficulty: _difficulty,
+                          humanColor: _humanColor,
+                        ),
+                      ),
+                    );
+                    _refreshStatus();
+                  },
                   icon: const Icon(Icons.play_arrow),
                   label: const Padding(
                     padding: EdgeInsets.symmetric(vertical: 12, horizontal: 8),
