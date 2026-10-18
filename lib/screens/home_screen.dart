@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../game/chess_ai.dart';
 import '../game/game_save_service.dart';
 import '../game/score_service.dart';
+import '../game/settings_service.dart';
 import 'game_screen.dart';
 import 'settings_screen.dart';
 
@@ -28,6 +29,10 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    // Safe to call shared_preferences here (post-first-frame widget
+    // lifecycle) — see the comment in main.dart for why it must NOT be
+    // awaited in main() before runApp().
+    SettingsService.instance.load();
     _refreshStatus();
     _loadSavedGame();
   }
