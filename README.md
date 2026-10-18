@@ -163,14 +163,18 @@ flutter run -d chrome
      secret `PLAY_GAMES_APP_ID`.
    - Bấm **Publishing** → **Publish** để Play Games Services có hiệu lực
      (ở trạng thái Draft thì chỉ tài khoản tester dùng được).
-   - Thêm 2 secret vào GitHub (Settings → Secrets and variables → Actions):
+   - (Tuỳ chọn) Vẫn ở **Configuration**, tạo thêm 4 **Achievement**: "Chiến
+     thắng đầu tiên", "10 ván thắng", "Chuỗi 5 ván thắng", "Thắng ở Rất khó"
+     — ghi lại 4 Achievement ID theo đúng thứ tự này.
+   - Thêm các secret vào GitHub (Settings → Secrets and variables → Actions):
      | Secret | Giá trị |
      |---|---|
      | `PLAY_GAMES_APP_ID` | `app_id` lấy từ bước Credentials ở trên |
      | `PLAY_GAMES_LEADERBOARD_ID` | Leaderboard ID vừa tạo |
-   - Thiếu 1 trong 2 secret trên thì build vẫn chạy bình thường, chỉ là
-     tính năng đăng nhập/bảng xếp hạng sẽ âm thầm không hoạt động (không
-     crash) cho tới khi bạn cấu hình xong — xem
+     | `PLAY_GAMES_ACHIEVEMENT_IDS` | (tuỳ chọn) 4 Achievement ID cách nhau bởi dấu phẩy, đúng thứ tự: thắng đầu tiên,10 ván thắng,chuỗi 5 ván,thắng Rất khó |
+   - Thiếu secret nào thì build vẫn chạy bình thường, chỉ là tính năng
+     tương ứng (đăng nhập/bảng xếp hạng/thành tích) sẽ âm thầm không hoạt
+     động (không crash) cho tới khi bạn cấu hình xong — xem
      [lib/game/score_service.dart](lib/game/score_service.dart).
    - Trước khi test đăng nhập trên điện thoại thật: tài khoản Google trên
      máy đó phải được thêm làm **tester** trong Play Console (mục **Testers**
@@ -228,6 +232,19 @@ càng lâu (từ 20 phút trở lên), hệ số giảm dần về mức sàn 0.
 bộ trên máy (theo từng cấp độ + tổng thể, qua `shared_preferences`) và
 đồng thời nộp lên bảng xếp hạng Play Games Services nếu người chơi đã
 đăng nhập.
+
+## Các tính năng khác
+
+- **Gợi ý nước đi**: nút bóng đèn trên màn hình chơi, AI tìm nước tốt nhất
+  cho người chơi (không tính vào chế độ 2 người chơi).
+- **Lưu & tiếp tục ván đang chơi**: tắt app giữa chừng không mất ván, màn
+  hình chính sẽ hiện thẻ "Tiếp tục ván đang chơi" khi mở lại.
+- **2 người chơi cùng máy**: chọn chế độ "2 người chơi" ở màn hình chính,
+  bỏ qua AI — không tính điểm/lịch sử/thành tích cho ván này.
+- **Âm thanh & rung**: dùng âm hệ thống + haptic, không cần file âm thanh
+  riêng; có thể tắt trong màn hình **Cài đặt**.
+- **Đổi màu bàn cờ**: 3 bộ màu (Cổ điển/Rừng xanh/Đại dương) trong **Cài
+  đặt**.
 
 ## Đưa code lên GitHub
 

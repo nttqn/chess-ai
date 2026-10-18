@@ -4,6 +4,8 @@ import 'package:chess/chess.dart' as chesslib;
 import 'package:flutter/foundation.dart';
 
 import 'chess_ai.dart';
+import 'feedback_service.dart';
+import 'game_save_service.dart';
 import 'score_service.dart';
 
 enum GameStatus { playing, checkmate, stalemate, draw }
@@ -16,12 +18,16 @@ class GameController extends ChangeNotifier {
   late chesslib.Color humanColor;
   late Difficulty difficulty;
   late ChessAi _ai;
+  bool vsHuman = false;
 
   String? selectedSquare;
   List<String> legalTargets = [];
   bool isAiThinking = false;
   String? lastMoveFrom;
   String? lastMoveTo;
+  String? hintFrom;
+  String? hintTo;
+  bool isHintLoading = false;
   final List<String> moveHistorySan = [];
 
   DateTime _startTime = DateTime.now();
@@ -38,18 +44,40 @@ class GameController extends ChangeNotifier {
   GameController({
     chesslib.Color humanColor = chesslib.Color.WHITE,
     Difficulty difficulty = Difficulty.medium,
+    bool vsHuman = false,
   }) {
     this.humanColor = humanColor;
     this.difficulty = difficulty;
+    this.vsHuman = vsHuman;
     _ai = ChessAi(difficulty);
-    if (humanColor == chesslib.Color.BLACK) {
+    _maybeStartAiTurn();
+  }
+
+  /// Rebuilds a controller from a [SavedGame] snapshot so a match
+  /// interrupted mid-play (app closed, phone call, etc.) can continue
+  /// exactly where it left off, including the AI's turn if it was next.
+  GameController.resume(SavedGame saved) {
+    _game = chesslib.Chess.fromFEN(saved.fen);
+    humanColor = saved.humanColor;
+    difficulty = saved.difficulty;
+    vsHuman = saved.vsHuman;
+    _ai = ChessAi(difficulty);
+    moveHistorySan.addAll(saved.moveHistorySan);
+    _startTime =
+        DateTime.now().subtract(Duration(seconds: saved.elapsedSeconds));
+    _maybeStartAiTurn();
+  }
+
+  void _maybeStartAiTurn() {
+    if (!vsHuman && _game.turn != humanColor) {
       _scheduleAiMove();
     }
   }
 
   chesslib.Chess get game => _game;
   chesslib.Color get turn => _game.turn;
-  bool get isHumanTurn => turn == humanColor && !isAiThinking;
+  bool get isHumanTurn =>
+      !isAiThinking && (vsHuman || turn == humanColor);
 
   GameStatus get status {
     if (_game.in_checkmate) return GameStatus.checkmate;
@@ -72,25 +100,28 @@ class GameController extends ChangeNotifier {
   void newGame({
     required chesslib.Color humanColor,
     required Difficulty difficulty,
+    bool vsHuman = false,
   }) {
     _game = chesslib.Chess();
     this.humanColor = humanColor;
     this.difficulty = difficulty;
+    this.vsHuman = vsHuman;
     _ai = ChessAi(difficulty);
     selectedSquare = null;
     legalTargets = [];
     lastMoveFrom = null;
     lastMoveTo = null;
+    hintFrom = null;
+    hintTo = null;
     isAiThinking = false;
     moveHistorySan.clear();
     _startTime = DateTime.now();
     _scoreHandled = false;
     lastScore = null;
     bestScoreAfterThisGame = null;
+    unawaited(GameSaveService.instance.clear());
     notifyListeners();
-    if (humanColor == chesslib.Color.BLACK) {
-      _scheduleAiMove();
-    }
+    _maybeStartAiTurn();
   }
 
   /// Call when the player taps a square. [choosePromotion] is invoked only
@@ -103,9 +134,12 @@ class GameController extends ChangeNotifier {
     if (!isHumanTurn || isGameOver) return;
 
     final piece = _game.get(square);
+    // Whichever color's turn it is may move it — in 2-player mode that
+    // alternates between both colors, not just [humanColor].
+    final mover = turn;
 
     if (selectedSquare == null) {
-      if (piece != null && piece.color == humanColor) {
+      if (piece != null && piece.color == mover) {
         selectedSquare = square;
         legalTargets = _legalTargetsFrom(square);
         notifyListeners();
@@ -121,7 +155,7 @@ class GameController extends ChangeNotifier {
     }
 
     if (!legalTargets.contains(square)) {
-      if (piece != null && piece.color == humanColor) {
+      if (piece != null && piece.color == mover) {
         selectedSquare = square;
         legalTargets = _legalTargetsFrom(square);
         notifyListeners();
@@ -175,11 +209,69 @@ class GameController extends ChangeNotifier {
     if (result) {
       lastMoveFrom = from;
       lastMoveTo = to;
+      hintFrom = null;
+      hintTo = null;
+      bool wasCapture = false;
       final history = _game.getHistory({'verbose': true}) as List;
       if (history.isNotEmpty) {
-        moveHistorySan.add(history.last['san'] as String);
+        final last = history.last as Map;
+        moveHistorySan.add(last['san'] as String);
+        wasCapture = last['captured'] != null;
       }
+      _playMoveFeedback(wasCapture: wasCapture);
+      unawaited(_saveProgress());
     }
+  }
+
+  void _playMoveFeedback({required bool wasCapture}) {
+    if (isGameOver) {
+      unawaited(FeedbackService.instance.gameOver());
+    } else if (_game.in_check) {
+      unawaited(FeedbackService.instance.check());
+    } else if (wasCapture) {
+      unawaited(FeedbackService.instance.capture());
+    } else {
+      unawaited(FeedbackService.instance.move());
+    }
+  }
+
+  Future<void> _saveProgress() async {
+    if (isGameOver) {
+      await GameSaveService.instance.clear();
+      return;
+    }
+    await GameSaveService.instance.save(
+      SavedGame(
+        fen: _game.fen,
+        humanColor: humanColor,
+        difficulty: difficulty,
+        vsHuman: vsHuman,
+        moveHistorySan: List.of(moveHistorySan),
+        elapsedSeconds: DateTime.now().difference(_startTime).inSeconds,
+      ),
+    );
+  }
+
+  /// Runs a short background search for the human side's best move and
+  /// surfaces it as a board highlight. Disabled in 2-player mode, where
+  /// hinting one side against the other would be unfair.
+  Future<void> requestHint() async {
+    if (vsHuman || !isHumanTurn || isGameOver || isHintLoading) return;
+    isHintLoading = true;
+    notifyListeners();
+    final request = <String, dynamic>{
+      'fen': _game.fen,
+      'depth': difficulty.searchDepth < 3 ? 3 : difficulty.searchDepth,
+      'randomMoveChance': 0.0,
+      'seed': DateTime.now().millisecondsSinceEpoch,
+    };
+    final result = await compute(findBestMoveIsolate, request);
+    if (result != null) {
+      hintFrom = result['from'] as String;
+      hintTo = result['to'] as String;
+    }
+    isHintLoading = false;
+    notifyListeners();
   }
 
   void _scheduleAiMove() {
@@ -203,13 +295,17 @@ class GameController extends ChangeNotifier {
   /// Play Games leaderboard happen in the background and notify again once
   /// they resolve.
   void _maybeAwardScore() {
-    if (_scoreHandled || !isGameOver) return;
+    if (_scoreHandled || !isGameOver || vsHuman) return;
     _scoreHandled = true;
-    if (winner != humanColor) return;
 
-    final elapsed = DateTime.now().difference(_startTime);
-    lastScore = calculateScore(difficulty: difficulty, elapsed: elapsed);
-    unawaited(_persistAndSubmitScore(lastScore!, elapsed));
+    if (winner == humanColor) {
+      final elapsed = DateTime.now().difference(_startTime);
+      lastScore = calculateScore(difficulty: difficulty, elapsed: elapsed);
+      unawaited(_persistAndSubmitScore(lastScore!, elapsed));
+    } else if (winner != null) {
+      // The AI won — breaks the player's current win streak.
+      unawaited(ScoreService.instance.resetWinStreak());
+    }
   }
 
   Future<void> _persistAndSubmitScore(int score, Duration elapsed) async {
@@ -225,23 +321,33 @@ class GameController extends ChangeNotifier {
     );
     notifyListeners();
     await ScoreService.instance.submitScore(score);
+    await ScoreService.instance.recordWinAndUnlockAchievements(difficulty);
   }
 
   /// Undo the player's last move together with the AI reply that followed
   /// it, so the player always lands back on their own turn.
   void undoLastPlayerMove() {
     if (isAiThinking) return;
-    if (_game.turn == humanColor) {
-      // AI already replied; undo both half-moves.
+    if (vsHuman) {
+      // Single local board — just take back the last half-move.
       if (_game.history.isNotEmpty) _game.undo();
+      if (moveHistorySan.isNotEmpty) moveHistorySan.removeLast();
+    } else {
+      if (_game.turn == humanColor) {
+        // AI already replied; undo both half-moves.
+        if (_game.history.isNotEmpty) _game.undo();
+      }
+      if (_game.history.isNotEmpty) _game.undo();
+      if (moveHistorySan.isNotEmpty) moveHistorySan.removeLast();
+      if (moveHistorySan.isNotEmpty) moveHistorySan.removeLast();
     }
-    if (_game.history.isNotEmpty) _game.undo();
-    if (moveHistorySan.isNotEmpty) moveHistorySan.removeLast();
-    if (moveHistorySan.isNotEmpty) moveHistorySan.removeLast();
     selectedSquare = null;
     legalTargets = [];
     lastMoveFrom = null;
     lastMoveTo = null;
+    hintFrom = null;
+    hintTo = null;
+    unawaited(_saveProgress());
     notifyListeners();
   }
 }
