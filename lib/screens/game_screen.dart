@@ -36,6 +36,7 @@ class _GameScreenState extends State<GameScreen> {
   BannerAd? _bannerAd;
   bool _bannerLoaded = false;
   bool _gameOverHandled = false;
+  bool _paused = false;
   int? _bestScoreForDifficulty;
 
   @override
@@ -85,12 +86,29 @@ class _GameScreenState extends State<GameScreen> {
     setState(() {});
   }
 
+  void _togglePause() => setState(() => _paused = !_paused);
+
+  void _restart() {
+    setState(() {
+      _paused = false;
+      _gameOverHandled = false;
+      _controller.newGame(
+        humanColor: widget.humanColor,
+        difficulty: widget.difficulty,
+        vsHuman: widget.vsHuman,
+      );
+    });
+  }
+
+  void _exitToHome() => Navigator.of(context).pop();
+
   String _resultMessage() {
     switch (_controller.status) {
       case GameStatus.checkmate:
         if (widget.vsHuman) {
-          final winnerLabel =
-              _controller.winner == chesslib.Color.WHITE ? 'Trắng' : 'Đen';
+          final winnerLabel = _controller.winner == chesslib.Color.WHITE
+              ? 'Trắng'
+              : 'Đen';
           return 'Chiếu hết! $winnerLabel thắng! 🎉';
         }
         final humanWon = _controller.winner == widget.humanColor;
@@ -125,10 +143,9 @@ class _GameScreenState extends State<GameScreen> {
                   const SizedBox(height: 12),
                   Text(
                     'Điểm ván này: $score',
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleMedium
-                        ?.copyWith(fontWeight: FontWeight.bold),
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   if (best != null)
                     Text(
@@ -151,14 +168,7 @@ class _GameScreenState extends State<GameScreen> {
               FilledButton(
                 onPressed: () {
                   Navigator.of(context).pop();
-                  setState(() {
-                    _gameOverHandled = false;
-                    _controller.newGame(
-                      humanColor: widget.humanColor,
-                      difficulty: widget.difficulty,
-                      vsHuman: widget.vsHuman,
-                    );
-                  });
+                  _restart();
                 },
                 child: const Text('Chơi lại'),
               ),
@@ -182,6 +192,21 @@ class _GameScreenState extends State<GameScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Back button pauses mid-game instead of exiting straight to the
+    // home screen (and dropping an in-progress, unsaved-by-intent
+    // decision) — only lets the system pop once the game is actually
+    // over, matching the pattern already used across this app series.
+    return PopScope(
+      canPop: _controller.isGameOver,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _togglePause();
+      },
+      child: _buildScaffold(context),
+    );
+  }
+
+  Widget _buildScaffold(BuildContext context) {
     return Scaffold(
       // titleSpacing: 0 plus zero-padding/tight-constraints on every action
       // icon below: with 6 actions, AppBar's default 48x48 IconButton tap
@@ -202,9 +227,9 @@ class _GameScreenState extends State<GameScreen> {
             tooltip: 'Lịch sử',
             icon: const Icon(Icons.history),
             onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const HistoryScreen()),
-              );
+              Navigator.of(
+                context,
+              ).push(MaterialPageRoute(builder: (_) => const HistoryScreen()));
             },
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
@@ -239,16 +264,7 @@ class _GameScreenState extends State<GameScreen> {
           IconButton(
             tooltip: 'Ván mới',
             icon: const Icon(Icons.refresh),
-            onPressed: () {
-              setState(() {
-                _gameOverHandled = false;
-                _controller.newGame(
-                  humanColor: widget.humanColor,
-                  difficulty: widget.difficulty,
-                  vsHuman: widget.vsHuman,
-                );
-              });
-            },
+            onPressed: _restart,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
           ),
@@ -256,77 +272,91 @@ class _GameScreenState extends State<GameScreen> {
         ],
       ),
       body: SafeArea(
-        child: Column(
+        child: Stack(
           children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: widget.vsHuman
-                          ? const _InfoChip(
-                              icon: Icons.people,
-                              label: '2 người chơi',
-                            )
-                          : _InfoChip(
-                              icon: Icons.speed,
-                              label: widget.difficulty.label,
-                            ),
-                    ),
-                  ),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (_controller.isAiThinking)
-                        const Padding(
-                          padding: EdgeInsets.only(right: 8),
-                          child: SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
-                        ),
-                      Text(
-                        _turnLabel,
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                    ],
-                  ),
-                  Expanded(
-                    child: Align(
-                      alignment: Alignment.centerRight,
-                      child: widget.vsHuman
-                          ? const SizedBox.shrink()
-                          : _InfoChip(
-                              icon: Icons.stars,
-                              iconColor: Colors.amber[700],
-                              label: '$_displayScore',
-                            ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: Center(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: ChessBoard(controller: _controller),
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            if (_bannerLoaded && _bannerAd != null)
-              SizedBox(
-                width: _bannerAd!.size.width.toDouble(),
-                height: _bannerAd!.size.height.toDouble(),
-                child: AdWidget(ad: _bannerAd!),
+            _buildBoardColumn(context),
+            if (_paused && !_controller.isGameOver)
+              _PauseOverlay(
+                onResume: _togglePause,
+                onRestart: _restart,
+                onExit: _exitToHome,
               ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildBoardColumn(BuildContext context) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+          child: Row(
+            children: [
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: widget.vsHuman
+                      ? const _InfoChip(
+                          icon: Icons.people,
+                          label: '2 người chơi',
+                        )
+                      : _InfoChip(
+                          icon: Icons.speed,
+                          label: widget.difficulty.label,
+                        ),
+                ),
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (_controller.isAiThinking)
+                    const Padding(
+                      padding: EdgeInsets.only(right: 8),
+                      child: SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    ),
+                  Text(
+                    _turnLabel,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ],
+              ),
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: widget.vsHuman
+                      ? const SizedBox.shrink()
+                      : _InfoChip(
+                          icon: Icons.stars,
+                          iconColor: Colors.amber[700],
+                          label: '$_displayScore',
+                        ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: ChessBoard(controller: _controller),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        if (_bannerLoaded && _bannerAd != null)
+          SizedBox(
+            width: _bannerAd!.size.width.toDouble(),
+            height: _bannerAd!.size.height.toDouble(),
+            child: AdWidget(ad: _bannerAd!),
+          ),
+      ],
     );
   }
 }
@@ -358,6 +388,71 @@ class _InfoChip extends StatelessWidget {
             style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Shown over the board when the Android back button is pressed mid-game
+/// — pauses rather than exiting straight back to the home screen.
+class _PauseOverlay extends StatelessWidget {
+  final VoidCallback onResume;
+  final VoidCallback onRestart;
+  final VoidCallback onExit;
+
+  const _PauseOverlay({
+    required this.onResume,
+    required this.onRestart,
+    required this.onExit,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned.fill(
+      child: Container(
+        color: Colors.black.withValues(alpha: 0.75),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Tạm dừng',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 24),
+              FilledButton.icon(
+                onPressed: onResume,
+                icon: const Icon(Icons.play_arrow),
+                label: const Text('Tiếp tục'),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  OutlinedButton(
+                    onPressed: onExit,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                    ),
+                    child: const Text('Về màn hình chính'),
+                  ),
+                  const SizedBox(width: 16),
+                  OutlinedButton(
+                    onPressed: onRestart,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                    ),
+                    child: const Text('Ván mới'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
