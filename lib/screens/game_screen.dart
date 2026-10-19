@@ -9,6 +9,8 @@ import '../game/score_service.dart';
 import '../services/ads_service.dart';
 import '../services/music_service.dart';
 import '../widgets/chess_board.dart';
+import '../widgets/music_toggle_button.dart';
+import '../widgets/sound_toggle_button.dart';
 import 'history_screen.dart';
 
 class GameScreen extends StatefulWidget {
@@ -181,9 +183,21 @@ class _GameScreenState extends State<GameScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // titleSpacing: 0 plus zero-padding/tight-constraints on every action
+      // icon below: with 6 actions, AppBar's default 48x48 IconButton tap
+      // targets don't leave enough room on a narrow window — AppBar's
+      // internal layout squeezes the actions area down arbitrarily rather
+      // than wrapping, so this needs each action's own footprint shrunk
+      // (see block-puzzle-app's game_screen.dart for the same fix after
+      // hitting a real "RenderFlex overflowed" there).
       appBar: AppBar(
-        title: const Text('Chess with AI'),
+        titleSpacing: 0,
+        title: const Text('Chess with AI', overflow: TextOverflow.ellipsis),
         actions: [
+          const SoundToggleButton(),
+          const SizedBox(width: 8),
+          const MusicToggleButton(),
+          const SizedBox(width: 8),
           IconButton(
             tooltip: 'Lịch sử',
             icon: const Icon(Icons.history),
@@ -192,7 +206,10 @@ class _GameScreenState extends State<GameScreen> {
                 MaterialPageRoute(builder: (_) => const HistoryScreen()),
               );
             },
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
           ),
+          const SizedBox(width: 8),
           IconButton(
             tooltip: widget.vsHuman
                 ? 'Gợi ý không khả dụng ở chế độ 2 người chơi'
@@ -207,12 +224,18 @@ class _GameScreenState extends State<GameScreen> {
             onPressed: widget.vsHuman || _controller.isGameOver
                 ? null
                 : () => _controller.requestHint(),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
           ),
+          const SizedBox(width: 8),
           IconButton(
             tooltip: 'Đi lại nước trước',
             icon: const Icon(Icons.undo),
             onPressed: () => _controller.undoLastPlayerMove(),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
           ),
+          const SizedBox(width: 8),
           IconButton(
             tooltip: 'Ván mới',
             icon: const Icon(Icons.refresh),
@@ -226,7 +249,10 @@ class _GameScreenState extends State<GameScreen> {
                 );
               });
             },
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
           ),
+          const SizedBox(width: 12),
         ],
       ),
       body: SafeArea(

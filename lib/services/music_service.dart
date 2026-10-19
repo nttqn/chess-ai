@@ -19,6 +19,7 @@ class MusicService {
   final ValueNotifier<bool> enabledNotifier = ValueNotifier<bool>(true);
 
   String? _wanted;
+  String? _playing;
   bool _initialized = false;
 
   Future<void> init() async {
@@ -52,9 +53,11 @@ class MusicService {
   void _play(String track) {
     _wanted = track;
     if (!_initialized || !enabledNotifier.value) return;
-    if (FlameAudio.bgm.isPlaying && _wanted == track) return;
+    // Already playing this exact track — don't restart it from 0.
+    if (FlameAudio.bgm.isPlaying && _playing == track) return;
     // Bgm.play() releases the old source first, so switching menu <->
     // game music is just calling this again with the other file.
+    _playing = track;
     FlameAudio.bgm.play(track, volume: _volume).catchError((_) {});
   }
 
@@ -62,8 +65,10 @@ class MusicService {
     enabledNotifier.value = !enabledNotifier.value;
     if (_initialized && _wanted != null) {
       if (enabledNotifier.value) {
+        _playing = _wanted;
         FlameAudio.bgm.play(_wanted!, volume: _volume).catchError((_) {});
       } else {
+        _playing = null;
         FlameAudio.bgm.stop().catchError((_) {});
       }
     }

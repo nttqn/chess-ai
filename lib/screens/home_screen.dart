@@ -6,6 +6,8 @@ import '../game/game_save_service.dart';
 import '../game/score_service.dart';
 import '../game/settings_service.dart';
 import '../services/music_service.dart';
+import '../widgets/music_toggle_button.dart';
+import '../widgets/sound_toggle_button.dart';
 import 'game_screen.dart';
 import 'settings_screen.dart';
 
@@ -119,6 +121,10 @@ class _HomeScreenState extends State<HomeScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         actions: [
+          const SoundToggleButton(),
+          const SizedBox(width: 12),
+          const MusicToggleButton(),
+          const SizedBox(width: 12),
           IconButton(
             tooltip: 'Cài đặt',
             icon: const Icon(Icons.settings_outlined),
@@ -127,7 +133,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 MaterialPageRoute(builder: (_) => const SettingsScreen()),
               );
             },
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
           ),
+          const SizedBox(width: 12),
         ],
       ),
       body: SafeArea(
