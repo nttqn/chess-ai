@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:chess/chess.dart' as chesslib;
 import 'package:flutter/foundation.dart';
 
+import '../services/sound_service.dart';
 import 'chess_ai.dart';
-import 'feedback_service.dart';
 import 'game_save_service.dart';
 import 'score_service.dart';
 
@@ -224,14 +224,18 @@ class GameController extends ChangeNotifier {
   }
 
   void _playMoveFeedback({required bool wasCapture}) {
-    if (isGameOver) {
-      unawaited(FeedbackService.instance.gameOver());
+    if (isGameOver && winner != null) {
+      // In 2-player mode there's no "the player" to win/lose for, so a
+      // checkmate always gets the triumphant cue rather than picking a
+      // side.
+      final triumphant = vsHuman || winner == humanColor;
+      SoundService.instance.play(triumphant ? SoundEffect.win : SoundEffect.lose);
     } else if (_game.in_check) {
-      unawaited(FeedbackService.instance.check());
+      SoundService.instance.play(SoundEffect.check);
     } else if (wasCapture) {
-      unawaited(FeedbackService.instance.capture());
+      SoundService.instance.play(SoundEffect.capture);
     } else {
-      unawaited(FeedbackService.instance.move());
+      SoundService.instance.play(SoundEffect.move);
     }
   }
 

@@ -5,6 +5,7 @@ import '../game/chess_ai.dart';
 import '../game/game_save_service.dart';
 import '../game/score_service.dart';
 import '../game/settings_service.dart';
+import '../services/music_service.dart';
 import 'game_screen.dart';
 import 'settings_screen.dart';
 
@@ -33,6 +34,7 @@ class _HomeScreenState extends State<HomeScreen> {
     // lifecycle) — see the comment in main.dart for why it must NOT be
     // awaited in main() before runApp().
     SettingsService.instance.load();
+    MusicService.instance.playMenu();
     _refreshStatus();
     _loadSavedGame();
   }
@@ -62,6 +64,7 @@ class _HomeScreenState extends State<HomeScreen> {
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => screen),
     );
+    MusicService.instance.playMenu();
     _refreshStatus();
     _loadSavedGame();
   }

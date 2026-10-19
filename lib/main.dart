@@ -1,19 +1,27 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'services/ads_service.dart';
+import 'services/music_service.dart';
+import 'services/sound_service.dart';
 import 'screens/home_screen.dart';
 
-// SettingsService.load() is deliberately NOT called here. Calling a
-// shared_preferences-backed plugin this early (before runApp()/the first
-// frame) races its Pigeon-generated platform-channel registration and
-// crashes on launch with "NoSuchMethodError:
-// SharedPreferencesApiRegistrar.getAll" on some devices. It's loaded from
-// HomeScreen.initState() instead, matching every other shared_preferences
-// call in this app (ScoreService, GameSaveService), which only ever run
-// from widget lifecycle methods after the first frame.
+// None of SoundService/MusicService/SettingsService.load() are awaited
+// here before runApp(). Calling a shared_preferences-backed plugin this
+// early (before runApp()/the first frame) races its Pigeon-generated
+// platform-channel registration and previously crashed this exact app on
+// launch with "NoSuchMethodError: SharedPreferencesApiRegistrar.getAll"
+// on some devices — see the comment on HomeScreen.initState(), which is
+// where all of these are actually loaded from instead, matching every
+// other shared_preferences call in this app (ScoreService,
+// GameSaveService), which only ever run from widget lifecycle methods
+// after the first frame.
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await AdsService.instance.initialize();
+  unawaited(SoundService.instance.init());
+  unawaited(MusicService.instance.init());
   runApp(const ChessApp());
 }
 

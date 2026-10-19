@@ -7,6 +7,7 @@ import '../game/game_controller.dart';
 import '../game/game_save_service.dart';
 import '../game/score_service.dart';
 import '../services/ads_service.dart';
+import '../services/music_service.dart';
 import '../widgets/chess_board.dart';
 import 'history_screen.dart';
 
@@ -46,6 +47,7 @@ class _GameScreenState extends State<GameScreen> {
             vsHuman: widget.vsHuman,
           );
     _controller.addListener(_onControllerChanged);
+    MusicService.instance.playGame();
     _bannerAd = AdsService.instance.createBannerAd(
       onLoaded: () => setState(() => _bannerLoaded = true),
     );

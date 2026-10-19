@@ -38,31 +38,26 @@ extension BoardThemeStyle on BoardTheme {
   }
 }
 
-/// Simple in-memory settings backed by SharedPreferences. [load] must be
-/// awaited once at startup (see main.dart) so [soundEnabled]/[boardTheme]
-/// are synchronously readable everywhere else (the board paints every
-/// frame and can't await a prefs lookup per square).
+/// Simple in-memory setting backed by SharedPreferences, for the board
+/// color theme only — sound/music toggles live in SoundService/
+/// MusicService instead, each with its own independent on/off state.
+/// [load] is called from HomeScreen.initState() (never from main() before
+/// runApp() — see the comment there) so [boardTheme] is synchronously
+/// readable everywhere else (the board paints every frame and can't await
+/// a prefs lookup per square).
 class SettingsService {
   SettingsService._();
   static final SettingsService instance = SettingsService._();
 
-  bool soundEnabled = true;
   BoardTheme boardTheme = BoardTheme.classic;
 
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
-    soundEnabled = prefs.getBool('settings_sound_enabled') ?? true;
     final themeName = prefs.getString('settings_board_theme');
     boardTheme = BoardTheme.values.firstWhere(
       (t) => t.name == themeName,
       orElse: () => BoardTheme.classic,
     );
-  }
-
-  Future<void> setSoundEnabled(bool value) async {
-    soundEnabled = value;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('settings_sound_enabled', value);
   }
 
   Future<void> setBoardTheme(BoardTheme theme) async {

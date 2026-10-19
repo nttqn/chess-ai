@@ -1,7 +1,7 @@
 name: chess_app
 description: "Chess with AI - Chơi cờ vua với máy trên Android, nhiều cấp độ khó dễ."
 publish_to: 'none'
-version: 1.0.2+4
+version: 1.0.3+5
 
 environment:
   sdk: '>=3.12.0 <4.0.0'
@@ -14,6 +14,7 @@ dependencies:
   google_mobile_ads: ^9.0.0
   shared_preferences: ^2.2.3
   games_services: ^5.3.0
+  flame_audio: ^2.12.2
 
 dev_dependencies:
   flutter_test:
@@ -25,6 +26,13 @@ flutter:
   uses-material-design: true
   assets:
     - assets/icon/icon.png
+    - assets/audio/click.wav
+    - assets/audio/hit.wav
+    - assets/audio/gong.wav
+    - assets/audio/levelup.wav
+    - assets/audio/herodie.wav
+    - assets/audio/music/bamboo.ogg
+    - assets/audio/music/menu.ogg
 
 flutter_launcher_icons:
   android: true

@@ -235,17 +235,40 @@ whichever is deeper, depth 3 or the current difficulty's depth, with
 is stored as `hintFrom`/`hintTo` and drawn by `ChessBoard` as a blue
 highlight; cleared on the next move. Disabled in `vsHuman` mode.
 
-**Sound/haptics (`lib/game/feedback_service.dart`)**: no bundled audio
-assets — uses `SystemSound.play(SystemSoundType.click)` plus
-`HapticFeedback` (selection/light/medium/heavy depending on
-move/capture/check/game-over), gated by `SettingsService.soundEnabled`.
-Called from `GameController._applyMove` right after a move is applied, so
-it fires for both the player's and the AI's moves.
+**Sound & music (`lib/services/sound_service.dart`,
+`lib/services/music_service.dart`)**: real bundled audio via
+`flame_audio` (reused assets from the sibling `kiem-hiep-app` project —
+`assets/audio/{click,hit,gong,levelup,herodie}.wav` +
+`assets/audio/music/{menu,bamboo}.ogg`), not `SystemSound`/
+`HapticFeedback` — an earlier version tried the system-sound approach and
+it was inaudible/no-op on real devices (depends on system "touch sounds"
+settings most users have off). `SoundService` plays one-shot effects via
+`AudioPool` (move/capture/check/win/lose, picked in
+`GameController._playMoveFeedback`); `MusicService` is a separate looping
+`FlameAudio.bgm` track, `playMenu()` on `HomeScreen` and `playGame()` on
+`GameScreen`. Each has its own independent on/off toggle
+(`enabledNotifier` + `shared_preferences`), both wired into
+`SettingsScreen`. **Both services' `init()` are fired `unawaited()` from
+`main()`**, never awaited before `runApp()` — same crash risk as
+`SettingsService.load()` below (a stuck/broken asset load could otherwise
+hang the first frame). Both also set `AudioContext(android:
+AudioContextAndroid(audioFocus: AndroidAudioFocus.none))` before creating
+any player — without it, every one-shot SFX request steals Android audio
+focus and pauses the looping background track for an instant (see
+`[[feedback_audioplayers_focus_and_keys]]` in memory).
 
 **Settings (`lib/game/settings_service.dart`,
-`lib/screens/settings_screen.dart`)**: a synchronous singleton loaded once
-in `main()` before `runApp` (the board paints every frame and can't await
-a prefs lookup per square), persisted to `shared_preferences` on change.
-Holds `soundEnabled` and `boardTheme` (`BoardTheme.classic/forest/ocean` —
+`lib/screens/settings_screen.dart`)**: a synchronous singleton for the
+board color theme only (sound/music have their own services/toggles
+above). Loaded from `HomeScreen.initState()` — **never from `main()`
+before `runApp()`**: an earlier version awaited this in `main()` and it
+raced `shared_preferences_android`'s plugin-channel registration, crashing
+every launch with `NoSuchMethodError:
+SharedPreferencesApiRegistrar.getAll` before any frame rendered (showed
+as a plain black screen, no error UI — diagnosed via `adb logcat` on a
+real device). Every `shared_preferences`-backed call in this app
+(`ScoreService`, `GameSaveService`, this, `SoundService`, `MusicService`)
+must only ever run from a widget lifecycle method, never from `main()`
+pre-`runApp()`. Holds `boardTheme` (`BoardTheme.classic/forest/ocean` —
 `ChessBoard` reads `SettingsService.instance.boardTheme.light/.dark`
 directly instead of hardcoded colors).

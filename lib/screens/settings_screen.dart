@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../game/settings_service.dart';
+import '../services/music_service.dart';
+import '../services/sound_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -10,7 +12,6 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  late bool _soundEnabled = SettingsService.instance.soundEnabled;
   late BoardTheme _boardTheme = SettingsService.instance.boardTheme;
 
   @override
@@ -20,16 +21,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          SwitchListTile(
-            title: const Text('Âm thanh & rung'),
-            subtitle: const Text(
-              'Báo khi đi quân, ăn quân, chiếu tướng và kết thúc ván',
+          ValueListenableBuilder<bool>(
+            valueListenable: SoundService.instance.enabledNotifier,
+            builder: (context, enabled, _) => SwitchListTile(
+              title: const Text('Hiệu ứng âm thanh'),
+              subtitle: const Text(
+                'Âm báo khi đi quân, ăn quân, chiếu tướng và kết thúc ván',
+              ),
+              value: enabled,
+              onChanged: (_) => SoundService.instance.toggle(),
             ),
-            value: _soundEnabled,
-            onChanged: (value) {
-              setState(() => _soundEnabled = value);
-              SettingsService.instance.setSoundEnabled(value);
-            },
+          ),
+          ValueListenableBuilder<bool>(
+            valueListenable: MusicService.instance.enabledNotifier,
+            builder: (context, enabled, _) => SwitchListTile(
+              title: const Text('Nhạc nền'),
+              subtitle: const Text('Nhạc nền phát trong lúc chơi'),
+              value: enabled,
+              onChanged: (_) => MusicService.instance.toggle(),
+            ),
           ),
           const SizedBox(height: 24),
           Text('Màu bàn cờ', style: Theme.of(context).textTheme.titleMedium),
