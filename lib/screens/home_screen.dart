@@ -60,7 +60,15 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() => _savedGame = saved);
   }
 
-  Future<void> _handleSignIn() => _refreshStatus();
+  Future<void> _openLeaderboard() async {
+    await ScoreService.instance.showLeaderboard();
+    _refreshStatus();
+  }
+
+  Future<void> _openAchievements() async {
+    await ScoreService.instance.showAchievements();
+    _refreshStatus();
+  }
 
   Future<void> _playGame(GameScreen screen) async {
     await Navigator.of(context).push(
@@ -83,20 +91,14 @@ class _HomeScreenState extends State<HomeScreen> {
               Chip(
                 avatar: const Icon(Icons.check_circle, color: Colors.green, size: 18),
                 label: Text(_playerName ?? 'Đã đăng nhập'),
-              )
-            else
-              OutlinedButton.icon(
-                onPressed: _handleSignIn,
-                icon: const Icon(Icons.login),
-                label: const Text('Đăng nhập Play Games'),
               ),
             OutlinedButton.icon(
-              onPressed: () => ScoreService.instance.showLeaderboard(),
+              onPressed: _openLeaderboard,
               icon: const Icon(Icons.leaderboard),
               label: const Text('Bảng xếp hạng'),
             ),
             OutlinedButton.icon(
-              onPressed: () => ScoreService.instance.showAchievements(),
+              onPressed: _openAchievements,
               icon: const Icon(Icons.emoji_events_outlined),
               label: const Text('Thành tích'),
             ),

@@ -122,21 +122,28 @@ class ScoreService {
     }
   }
 
+  /// Signs in (no-op if already signed in) before showing the leaderboard
+  /// or achievements screen — there's no separate "sign in" button in the
+  /// UI, so this is the fallback for whenever the silent sign-in attempt
+  /// on app start didn't succeed (no network yet, first launch, etc.).
   Future<void> showLeaderboard() async {
     try {
+      await GamesServices.signIn();
       await GamesServices.showLeaderboards(
         androidLeaderboardID: PlayGamesConfig.leaderboardId,
       );
     } catch (_) {
-      // Not signed in, or the leaderboard ID hasn't been configured yet.
+      // Sign-in failed/declined, or the leaderboard ID hasn't been
+      // configured yet.
     }
   }
 
   Future<void> showAchievements() async {
     try {
+      await GamesServices.signIn();
       await GamesServices.showAchievements();
     } catch (_) {
-      // Not signed in, or no achievements configured yet.
+      // Sign-in failed/declined, or no achievements configured yet.
     }
   }
 
