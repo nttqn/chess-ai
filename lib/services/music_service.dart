@@ -43,7 +43,14 @@ class MusicService {
     } catch (_) {
       // No bgm this session (e.g. a broken/missing asset) — the app must
       // stay fully usable in silence, same contract as SoundService.
+      return;
     }
+    // HomeScreen.initState() calls playMenu() right away, which almost
+    // always lands before this async init() finishes (bgm.initialize()
+    // alone is a few platform-channel round trips) — _play() saw
+    // _initialized == false back then and only recorded _wanted without
+    // actually starting playback, so catch up on that request now.
+    if (_wanted != null) _play(_wanted!);
   }
 
   void playMenu() => _play(_menuTrack);
