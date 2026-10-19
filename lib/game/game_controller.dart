@@ -181,7 +181,7 @@ class GameController extends ChangeNotifier {
     _maybeAwardScore();
     notifyListeners();
 
-    if (!isGameOver) {
+    if (!vsHuman && !isGameOver) {
       _scheduleAiMove();
     }
   }
